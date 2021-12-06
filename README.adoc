@@ -51,10 +51,10 @@ dependencies {
 - R. E. Bryant.
 *"Graph-Based Algorithms for Boolean Function Manipulation,"* 1986. link:https://doi.org/10.1109/TC.1986.1676819[DOI].
 - K. S. Brace, R. L. Rudell, and R. E. Bryant.
-*"Efficient implementation of a BDD package,"* 1990.link:https://doi.org/10.1109/DAC.1990.114826[DOI].
+*"Efficient implementation of a BDD package,"* 1990. link:https://doi.org/10.1109/DAC.1990.114826[DOI].
 - C. Meinel and T. Theobald.
-*"Algorithms and Data Structures in VLSI Design,"* 1998.link:https://doi.org/10.1007/978-3-642-58940-9[DOI].
+*"Algorithms and Data Structures in VLSI Design,"* 1998. link:https://doi.org/10.1007/978-3-642-58940-9[DOI].
 - H. R. Andersen.
 *"An Introduction to Binary Decision Diagrams,"* 1999. link:https://www.cmi.ac.in/~madhavan/courses/verification-2011/andersen-bdd.pdf[Online].
 - R. E. Bryant.
-*"Binary Decision Diagrams"* in _Handbook of Model Checking_, 2018.link:https://doi.org/10.1007/978-3-319-10575-8_7[DOI].
+*"Binary Decision Diagrams"* in _Handbook of Model Checking_, 2018. link:https://doi.org/10.1007/978-3-319-10575-8_7[DOI].
