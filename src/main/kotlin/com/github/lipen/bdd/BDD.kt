@@ -1,38 +1,15 @@
 package com.github.lipen.bdd
 
 import java.util.Optional
-import java.util.WeakHashMap
 import kotlin.math.absoluteValue
 import kotlin.math.min
 
-private class Cache<K, V>(
-    val name: String,
-    val internal: MutableMap<K, V> = WeakHashMap(),
-) {
-    var hits: Int = 0
-        private set
-    var misses: Int = 0
-        private set
+private val logger = mu.KotlinLogging.logger {}
 
-    fun getOrCompute(key: K, default: (K) -> V): V {
-        return internal.compute(key) { k, v ->
-            if (v == null) {
-                println("$name: cache miss for $k")
-                misses++
-                default(k)
-            } else {
-                println("$name: cache hit for $k")
-                hits++
-                v
-            }
-        }!!
-    }
-}
-
-@Suppress("ClassName")
-class BDD_Complement {
+class BDD {
     // T :: {id: Node}
-    internal val nodes: MutableMap<Int, Node> = mutableMapOf(1 to Terminal)
+    private val _nodes: MutableMap<Int, Node> = mutableMapOf(1 to Terminal)
+    val nodes: Map<Int, Node> = _nodes
 
     // H :: {(v,l,h): Function}
     private val uniqueTable: MutableMap<MyKey, Function> = mutableMapOf()
@@ -45,10 +22,6 @@ class BDD_Complement {
         constructor(v: Int, low: Function, high: Function) : this(v, low.id, high.id)
     }
 
-    // private val iteCache: MutableMap<Triple<Int, Int, Int>, Function> = WeakHashMap()
-    // private val andCache: MutableMap<Pair<Int, Int>, Function> = WeakHashMap()
-    // private val orCache: MutableMap<Pair<Int, Int>, Function> = WeakHashMap()
-    // private val xorCache: MutableMap<Pair<Int, Int>, Function> = WeakHashMap()
     private val iteCache = Cache<Triple<Int, Int, Int>, Function>("ITE")
     private val iteConstantCache = Cache<Triple<Int, Int, Int>, Optional<Function>>("ITE-CONST")
     private val andCache = Cache<Pair<Int, Int>, Function>("AND")
@@ -58,31 +31,25 @@ class BDD_Complement {
     val cacheMisses: Int
         get() = caches.sumOf { it.misses }
 
-    val one: Function =
-        Function(Terminal, false)
-    val zero: Function =
-        Function(Terminal, true)
+    val one: Function = Function(Terminal, false)
+    val zero: Function = Function(Terminal, true)
 
     fun terminal(value: Boolean): Function {
-        return if (value) {
-            one
-        } else {
-            zero
-        }
+        return if (value) one else zero
     }
 
     fun variable(v: Int): Function {
         return mk(v, low = zero, high = one)
     }
 
-    fun get(id: Int): Function {
-        val node = nodes.getValue(id.absoluteValue)
+    operator fun get(id: Int): Function {
+        val node = _nodes.getValue(id.absoluteValue)
         return Function(node, id < 0)
     }
 
     private fun addNode(node: Node): Int {
-        val id: Int = (1..Int.MAX_VALUE).first { it !in nodes }
-        nodes[id] = node
+        val id: Int = (1..Int.MAX_VALUE).first { it !in _nodes }
+        _nodes[id] = node
         return id
     }
 
@@ -91,11 +58,11 @@ class BDD_Complement {
     }
 
     fun mk(v: Int, low: Function, high: Function): Function {
-        println("mk(v = $v, low = $low, high = $high)")
+        logger.debug { "mk(v = $v, low = $low, high = $high)" }
 
         // Handle canonicity
         if (high.negated) {
-            println("mk: restoring canonicity")
+            logger.debug { "mk: restoring canonicity" }
             return !mk(v, !low, !high)
         }
 
@@ -103,7 +70,7 @@ class BDD_Complement {
 
         // Handle duplicates
         if (low == high) {
-            println("mk: duplicates")
+            logger.debug { "mk: duplicates" }
             return low
         }
 
@@ -114,9 +81,8 @@ class BDD_Complement {
         }
     }
 
-    @Suppress("LiftReturnOrAssignment")
     fun applyIte(f: Function, g: Function, h: Function): Function {
-        println("applyIte(f = $f, g = $g, h = $h)")
+        logger.debug { "applyIte(f = $f, g = $g, h = $h)" }
 
         // Terminal cases for ITE(F,G,H):
         // - One variable cases (F is constant)
@@ -135,12 +101,12 @@ class BDD_Complement {
 
         // ite(1,G,H) => G
         if (f.isOne()) {
-            println("applyIte: f is 1")
+            logger.debug { "applyIte: f is 1" }
             return g
         }
         // ite(0,G,H) => H
         if (f.isZero()) {
-            println("applyIte: f is 0")
+            logger.debug { "applyIte: f is 0" }
             return h
         }
 
@@ -149,52 +115,54 @@ class BDD_Complement {
 
         // ite(F,F,H) == ite(F,1,H) == F + H
         if (g.isTerminal() || f == g) {
-            println("applyIte: either g is terminal or f == g")
+            logger.debug { "applyIte: either g is terminal or f == g" }
+            @Suppress("LiftReturnOrAssignment")
             // ite(F,1,0) => F
             if (h.isZero()) {
-                println("applyIte: h is 0")
+                logger.debug { "applyIte: h is 0" }
                 return f
             }
             // F + H => ~(~F * ~H)
             else {
-                println("applyIte: h is not 0")
+                logger.debug { "applyIte: h is not 0" }
                 return !applyAnd(!f, !h)
             }
         }
         // ite(F,~F,H) == ite(F,0,H) == ~F * H
         else if (g.isZero() || f == !g) {
-            println("applyIte: either g is 0 or f == ~g")
+            logger.debug { "applyIte: either g is 0 or f == ~g" }
+            @Suppress("LiftReturnOrAssignment")
             // ite(F,0,1) => ~F
             if (h.isOne()) {
-                println("applyIte: h is 1")
+                logger.debug { "applyIte: h is 1" }
                 return !f
             }
             // ~F * H
             else {
-                println("applyIte: h is not 1")
+                logger.debug { "applyIte: h is not 1" }
                 return applyAnd(!f, h)
             }
         }
 
         // ite(F,G,F) == ite(F,G,0) == F * G
         if (h.isZero() || f == h) {
-            println("applyIte: either h is 0 or f == h")
+            logger.debug { "applyIte: either h is 0 or f == h" }
             return applyAnd(f, g)
         }
         // ite(F,G,~F) == ite(F,G,1) == ~F + G
         else if (h.isOne() || f == !h) {
-            println("applyIte: either h is 1 or f == ~h")
+            logger.debug { "applyIte: either h is 1 or f == ~h" }
             return applyAnd(f, !g)
         }
 
         // ite(F,G,G) => G
         if (g == h) {
-            println("applyIte: g == h")
+            logger.debug { "applyIte: g == h" }
             return g
         }
         // ite(F,G,~G) == F <-> G == F ^ ~G
         else if (g == !h) {
-            println("applyIte: g == ~h")
+            logger.debug { "applyIte: g == ~h" }
             return applyXor(f, h)
         }
 
@@ -229,33 +197,33 @@ class BDD_Complement {
             val j = (g.node as VarNode).v
             val k = (h.node as VarNode).v
             val m = min(i, min(j, k))
-            println("applyIte: min variable = $m")
+            logger.debug { "applyIte: min variable = $m" }
 
             // cofactors of f,g,h
             val (f0, f1) = f.topCofactors(m)
-            println("applyIte: cofactors of f = $f:")
-            println("    f0 = $f0")
-            println("    f1 = $f1")
+            logger.debug { "applyIte: cofactors of f = $f:" }
+            logger.debug { "    f0 = $f0" }
+            logger.debug { "    f1 = $f1" }
             val (g0, g1) = g.topCofactors(m)
-            println("applyIte: cofactors of g = $g:")
-            println("    g0 = $g0")
-            println("    g1 = $g1")
+            logger.debug { "applyIte: cofactors of g = $g:" }
+            logger.debug { "    g0 = $g0" }
+            logger.debug { "    g1 = $g1" }
             val (h0, h1) = h.topCofactors(m)
-            println("applyIte: cofactors of h = $h:")
-            println("    h0 = $h0")
-            println("    h1 = $h1")
+            logger.debug { "applyIte: cofactors of h = $h:" }
+            logger.debug { "    h0 = $h0" }
+            logger.debug { "    h1 = $h1" }
 
             // cofactors of the resulting node ("then" and "else" branches)
             val t = applyIte(f1, g1, h1)
             val e = applyIte(f0, g0, h0)
 
-            println("applyIte: cofactors of res:")
-            println("    t = $t")
-            println("    e = $e")
+            logger.debug { "applyIte: cofactors of res:" }
+            logger.debug { "    t = $t" }
+            logger.debug { "    e = $e" }
             mk(v = m, low = e, high = t).let {
                 if (n) !it else it
             }.also {
-                println("applyIte: res = $it")
+                logger.debug { "applyIte: res = $it" }
             }
         }
     }
@@ -263,18 +231,18 @@ class BDD_Complement {
     fun iteConstant(f: Function, g: Function, h: Function): Function? {
 
         // NOTE: THIS METHOD IS INCOMPLETE AND PROBABLY CONTAINS BUGS!!!
-        println("NOTE: iteConstant implementation is incomplete!")
+        logger.error("NOTE: iteConstant implementation is incomplete!")
 
-        println("iteConstant(f = $f, g = $g, h = $h)")
+        logger.debug { "iteConstant(f = $f, g = $g, h = $h)" }
 
         // ite(1,G,H) => G
         if (f.isOne()) {
-            println("iteConstant: f is 1")
+            logger.debug { "iteConstant: f is 1" }
             return g
         }
         // ite(0,G,H) => H
         if (f.isZero()) {
-            println("iteConstant: f is 0")
+            logger.debug { "iteConstant: f is 0" }
             return h
         }
 
@@ -303,17 +271,17 @@ class BDD_Complement {
 
         // ite(F,G,G) => G
         if (g == h) {
-            println("iteConstant: g == h")
+            logger.debug { "iteConstant: g == h" }
             return g
         }
         // ite(F,1,0) or ite(F,0,1) => is not constant
         if (g.isTerminal() && h.isTerminal()) {
-            println("iteConstant: g and h are terminals")
+            logger.debug { "iteConstant: g and h are terminals" }
             return null
         }
         // ite(F,G,~G) == F <-> G == F ^ ~G
         if (g == !h) {
-            println("iteConstant: g == ~h")
+            logger.debug { "iteConstant: g == ~h" }
             return null
         }
 
@@ -325,21 +293,21 @@ class BDD_Complement {
             val j = g.node.v
             val k = h.node.v
             val m = min(i, min(j, k))
-            println("iteConstant: min variable = $m")
+            logger.debug { "iteConstant: min variable = $m" }
 
             // cofactors of f,g,h
             val (f0, f1) = f.topCofactors(m)
-            println("iteConstant: cofactors of f = $f:")
-            println("    f0 = $f0")
-            println("    f1 = $f1")
+            logger.debug { "iteConstant: cofactors of f = $f:" }
+            logger.debug { "    f0 = $f0" }
+            logger.debug { "    f1 = $f1" }
             val (g0, g1) = g.topCofactors(m)
-            println("iteConstant: cofactors of g = $g:")
-            println("    g0 = $g0")
-            println("    g1 = $g1")
+            logger.debug { "iteConstant: cofactors of g = $g:" }
+            logger.debug { "    g0 = $g0" }
+            logger.debug { "    g1 = $g1" }
             val (h0, h1) = h.topCofactors(m)
-            println("iteConstant: cofactors of h = $h:")
-            println("    h0 = $h0")
-            println("    h1 = $h1")
+            logger.debug { "iteConstant: cofactors of h = $h:" }
+            logger.debug { "    h0 = $h0" }
+            logger.debug { "    h1 = $h1" }
 
             val t = iteConstant(f1, g1, h1) ?: return@getOrCompute Optional.empty()
             val e = iteConstant(f0, g0, h0)
@@ -351,12 +319,12 @@ class BDD_Complement {
     }
 
     fun applyAnd_ite(u: Function, v: Function): Function {
-        println("applyAnd_ite(u = $u, v = $v)")
+        logger.debug { "applyAnd_ite(u = $u, v = $v)" }
         return applyIte(u, v, zero)
     }
 
     private fun _apply(u: Function, v: Function, f: (Function, Function) -> Function): Function {
-        println("_apply(u = $u, v = $v)")
+        logger.debug { "_apply(u = $u, v = $v)" }
 
         require(u.node is VarNode)
         require(v.node is VarNode)
@@ -366,51 +334,51 @@ class BDD_Complement {
         val i = u.node.v
         val j = v.node.v
         val m = min(i, j)
-        println("_apply(@${u.id}, @${v.id}): min variable = $m")
+        logger.debug { "_apply(@${u.id}, @${v.id}): min variable = $m" }
 
         // cofactors of u,v
         val (u0, u1) = u.topCofactors(m)
-        println("_apply(@${u.id}, @${v.id}): cofactors of u = $u:")
-        println("    u0 = $u0")
-        println("    u1 = $u1")
+        logger.debug { "_apply(@${u.id}, @${v.id}): cofactors of u = $u:" }
+        logger.debug { "    u0 = $u0" }
+        logger.debug { "    u1 = $u1" }
         val (v0, v1) = v.topCofactors(m)
-        println("_apply(@${u.id}, @${v.id}): cofactors of v = $v:")
-        println("    v0 = $v0")
-        println("    v1 = $v1")
+        logger.debug { "_apply(@${u.id}, @${v.id}): cofactors of v = $v:" }
+        logger.debug { "    v0 = $v0" }
+        logger.debug { "    v1 = $v1" }
 
         // cofactors of the resulting node w
         val w0 = f(u0, v0)
         val w1 = f(u1, v1)
-        println("_apply(@${u.id}, @${v.id}): cofactors of w:")
-        println("    w0 = $w0")
-        println("    w1 = $w1")
+        logger.debug { "_apply(@${u.id}, @${v.id}): cofactors of w:" }
+        logger.debug { "    w0 = $w0" }
+        logger.debug { "    w1 = $w1" }
 
         return mk(v = m, low = w0, high = w1).also {
-            println("_apply(@${u.id}, @${v.id}): w = $it")
+            logger.debug { "_apply(@${u.id}, @${v.id}): w = $it" }
         }
     }
 
     fun applyAnd(u: Function, v: Function): Function {
-        println("applyAnd(u = $u, v = $v)")
+        logger.debug { "applyAnd(u = $u, v = $v)" }
 
         if (u.isZero() || v.isZero()) {
-            println("applyAnd(@${u.id}, @${v.id}): either u or v is 0")
+            logger.debug { "applyAnd(@${u.id}, @${v.id}): either u or v is 0" }
             return zero
         }
         if (u.isOne()) {
-            println("applyAnd(@${u.id}, @${v.id}): u is 1")
+            logger.debug { "applyAnd(@${u.id}, @${v.id}): u is 1" }
             return v
         }
         if (v.isOne()) {
-            println("applyAnd(@${u.id}, @${v.id}): v is 1")
+            logger.debug { "applyAnd(@${u.id}, @${v.id}): v is 1" }
             return u
         }
         if (u == v) {
-            println("applyAnd(@${u.id}, @${v.id}): u == v")
+            logger.debug { "applyAnd(@${u.id}, @${v.id}): u == v" }
             return u
         }
         if (u == !v) {
-            println("applyAnd(@${u.id}, @${v.id}): u == ~v")
+            logger.debug { "applyAnd(@${u.id}, @${v.id}): u == ~v" }
             return zero
         }
 
@@ -420,26 +388,26 @@ class BDD_Complement {
     }
 
     fun applyOr(u: Function, v: Function): Function {
-        println("applyOr(u = $u, v = $v)")
+        logger.debug { "applyOr(u = $u, v = $v)" }
 
         if (u.isOne() || v.isOne()) {
-            println("applyOr(@${u.id}, @${v.id}): either u or v is 1")
+            logger.debug { "applyOr(@${u.id}, @${v.id}): either u or v is 1" }
             return one
         }
         if (u.isZero()) {
-            println("applyOr(@${u.id}, @${v.id}): u is 0")
+            logger.debug { "applyOr(@${u.id}, @${v.id}): u is 0" }
             return v
         }
         if (v.isZero()) {
-            println("applyOr(@${u.id}, @${v.id}): v is 0")
+            logger.debug { "applyOr(@${u.id}, @${v.id}): v is 0" }
             return u
         }
         if (u == v) {
-            println("applyOr(@${u.id}, @${v.id}): u == v")
+            logger.debug { "applyOr(@${u.id}, @${v.id}): u == v" }
             return u
         }
         if (u == !v) {
-            println("applyOr(@${u.id}, @${v.id}): u == ~v")
+            logger.debug { "applyOr(@${u.id}, @${v.id}): u == ~v" }
             return one
         }
 
@@ -449,31 +417,31 @@ class BDD_Complement {
     }
 
     fun applyXor(u: Function, v: Function): Function {
-        println("applyXor(u = $u, v = $v)")
+        logger.debug { "applyXor(u = $u, v = $v)" }
         error("not checked yet")
 
         if (u.isOne()) {
-            println("applyXor: u is 1")
+            logger.debug { "applyXor: u is 1" }
             return !v
         }
         if (v.isOne()) {
-            println("applyXor: v is 1")
+            logger.debug { "applyXor: v is 1" }
             return !u
         }
         if (u.isZero()) {
-            println("applyXor: u is 0")
+            logger.debug { "applyXor: u is 0" }
             return v
         }
         if (v.isZero()) {
-            println("applyXor: v is 0")
+            logger.debug { "applyXor: v is 0" }
             return u
         }
         if (u == v) {
-            println("applyXor: u == v")
+            logger.debug { "applyXor: u == v" }
             return zero
         }
         if (u == !v) {
-            println("applyXor: u == ~v")
+            logger.debug { "applyXor: u == ~v" }
             return one
         }
 
@@ -502,7 +470,7 @@ class BDD_Complement {
         override val id: Int = addNode(this)
 
         init {
-            println("Created new node $this")
+            logger.debug { "Created new node $this" }
             check(id > 0)
         }
 
@@ -625,6 +593,11 @@ class BDD_Complement {
             return _allSat(mutableMapOf(), true)
         }
 
+        // fun eqNeg(other: Function) : Boolean {
+        //     // return this == !other
+        //     return (node == other.node) && (negated xor other.negated)
+        // }
+
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
             if (javaClass != other?.javaClass) return false
@@ -663,7 +636,7 @@ private fun Map<Int, Boolean>.stringify(n: Int): String {
 }
 
 private fun f1() {
-    val bdd = BDD_Complement()
+    val bdd = BDD()
 
     val x1 = bdd.variable(1)
     val x2 = bdd.variable(2)
@@ -712,7 +685,7 @@ private fun f1() {
 }
 
 private fun f2() {
-    val bdd = BDD_Complement()
+    val bdd = BDD()
 
     // function u2 = x2
     val u2 = bdd.mk(v = 2, low = bdd.zero, high = bdd.one)
@@ -745,7 +718,7 @@ private fun f2() {
 }
 
 private fun f3() {
-    val bdd = BDD_Complement()
+    val bdd = BDD()
     val zero = bdd.zero
     val one = bdd.one
 
@@ -801,7 +774,7 @@ private fun f3() {
 }
 
 private fun f4() {
-    val bdd = BDD_Complement()
+    val bdd = BDD()
     val nvar = 3
 
     val x1 = bdd.variable(1)
@@ -850,7 +823,7 @@ private fun f4() {
 }
 
 private fun f5() {
-    val bdd = BDD_Complement()
+    val bdd = BDD()
     val one = bdd.one
     val zero = bdd.zero
     val nvar = 3
@@ -892,7 +865,7 @@ private fun f5() {
 }
 
 private fun f6() {
-    val bdd = BDD_Complement()
+    val bdd = BDD()
     val one = bdd.one
     val zero = bdd.zero
     val nvar = 4
@@ -934,7 +907,7 @@ private fun f6() {
 }
 
 private fun f7() {
-    val bdd = BDD_Complement()
+    val bdd = BDD()
     val one = bdd.one
     val zero = bdd.zero
     val nvar = 2
@@ -951,6 +924,7 @@ private fun f7() {
     println("f = $f")
 
     println("-".repeat(42))
+    // manually create BDD with reversed order
     val v1 = bdd.mk(v = 1, low = one, high = zero)
     val v2 = bdd.mk(v = 2, low = one, high = v1)
     val g = v2
