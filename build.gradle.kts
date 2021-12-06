@@ -1,21 +1,24 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
+group = "com.github.Lipen"
+
 plugins {
     kotlin("jvm") version "1.6.0"
     application
     id("fr.brouillard.oss.gradle.jgitver") version "0.9.1"
     id("com.github.ben-manes.versions") version "0.39.0"
+    `maven-publish`
 }
-
-group = "com.github.Lipen"
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
+    implementation(platform(kotlin("bom")))
+    implementation(kotlin("stdlib-jdk8"))
+
     implementation("io.github.microutils:kotlin-logging:2.1.0")
-    // runtimeOnly("org.slf4j:slf4j-simple:1.7.29")
     runtimeOnly("ch.qos.logback:logback-classic:1.2.3")
 
     testImplementation(kotlin("test"))
@@ -32,4 +35,22 @@ tasks.withType<KotlinCompile> {
 application {
     mainClass.set("com.github.lipen.bdd.BDDKt")
     applicationDefaultJvmArgs = listOf("-Dfile.encoding=UTF-8", "-Dsun.stdout.encoding=UTF-8")
+}
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["java"])
+        }
+    }
+    repositories {
+        maven(url = "$buildDir/repository")
+    }
 }

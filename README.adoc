@@ -1,0 +1,59 @@
+= Binary Decision Diagrams for Kotlin
+
+ifdef::env-github[]
+:important-caption: :heavy_exclamation_mark:
+:note-caption: :memo:
+:tip-caption: :bulb:
+:warning-caption: :warning:
+endif::[]
+
+image:https://github.com/Lipen/kotlin-bdd/workflows/Build/badge.svg?branch=master["Build",link="https://github.com/Lipen/kotlin-bdd/actions"]
+image:https://jitpack.io/v/Lipen/kotlin-bdd.svg["JitPack",link="https://jitpack.io/p/Lipen/kotlin-bdd"]
+image:https://hitsofcode.com/github/Lipen/kotlin-bdd["Hits-of-Code",link="https://hitsofcode.com/view/github/Lipen/kotlin-bdd"]
+
+> This project provides a Kotlin implementation of (Reduced Ordered) Binary Decision Diagrams with shared representation and complementary edges.
+
+:link-cudd: https://github.com/ivmai/cudd[CUDD]
+:link-dd: https://github.com/tulip-control/dd[dd]
+:link-lib-bdd: https://github.com/sybila/biodivine-lib-bdd[lib-bdd]
+:link-sylvan: https://github.com/trolando/sylvan[Sylvan]
+:link-adiar: https://github.com/SSoelvsten/adiar[Adiar]
+
+`kotlin-bdd` was heavily inspired by {link-cudd} (C/C++), {link-dd} (Python) and {link-lib-bdd} (Rust).
+
+NOTE: `kotlin-bdd` is currently a purely educational project and may not be as feature-complete and/or performant as full-fledged BDD packages such as {link-cudd}, {link-sylvan}, {link-adiar}.
+
+== Installation
+
+[source,kotlin]
+.build.gradle.kts
+----
+repositories {
+    maven(url = "https://jitpack.io")
+}
+dependencies {
+    implementation("com.github.Lipen:kotlin-bdd:${Versions.kotlin_bdd}")
+}
+----
+
+== Library usage
+
+[source,kotlin]
+----
+// TODO
+----
+
+'''
+
+=== Bibliography
+
+- R. E. Bryant.
+*"Graph-Based Algorithms for Boolean Function Manipulation,"* 1986. link:https://doi.org/10.1109/TC.1986.1676819[DOI].
+- K. S. Brace, R. L. Rudell, and R. E. Bryant.
+*"Efficient implementation of a BDD package,"* 1990.link:https://doi.org/10.1109/DAC.1990.114826[DOI].
+- C. Meinel and T. Theobald.
+*"Algorithms and Data Structures in VLSI Design,"* 1998.link:https://doi.org/10.1007/978-3-642-58940-9[DOI].
+- H. R. Andersen.
+*"An Introduction to Binary Decision Diagrams,"* 1999. link:https://www.cmi.ac.in/~madhavan/courses/verification-2011/andersen-bdd.pdf[Online].
+- R. E. Bryant.
+*"Binary Decision Diagrams"* in _Handbook of Model Checking_, 2018.link:https://doi.org/10.1007/978-3-319-10575-8_7[DOI].
