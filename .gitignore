@@ -1,0 +1,14 @@
+# Hidden folders
+.idea/
+.gradle/
+
+# Build folders
+out/
+build/
+
+# Logs
+logs/
+*.log
+
+# Other
+*.txt
