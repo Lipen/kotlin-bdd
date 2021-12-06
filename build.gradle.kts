@@ -44,6 +44,10 @@ java {
     targetCompatibility = JavaVersion.VERSION_1_8
 }
 
+jgitver {
+    strategy("MAVEN")
+}
+
 publishing {
     publications {
         create<MavenPublication>("maven") {
