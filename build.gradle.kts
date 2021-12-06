@@ -58,3 +58,10 @@ publishing {
         maven(url = "$buildDir/repository")
     }
 }
+
+tasks.wrapper {
+    gradleVersion = "7.3"
+    distributionType = Wrapper.DistributionType.ALL
+}
+
+defaultTasks("clean", "build")
