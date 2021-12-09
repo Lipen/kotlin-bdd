@@ -5,6 +5,7 @@ group = "com.github.Lipen"
 plugins {
     kotlin("jvm") version "1.6.0"
     application
+    id("com.github.johnrengelman.shadow") version "7.1.0" apply false
     id("fr.brouillard.oss.gradle.jgitver") version "0.9.1"
     id("com.github.ben-manes.versions") version "0.39.0"
     `maven-publish`
@@ -18,10 +19,11 @@ dependencies {
     implementation(platform(kotlin("bom")))
     implementation(kotlin("stdlib-jdk8"))
 
-    implementation("io.github.microutils:kotlin-logging:2.1.0")
-    runtimeOnly("ch.qos.logback:logback-classic:1.2.3")
+    implementation("io.github.microutils:kotlin-logging:2.1.15")
+    runtimeOnly("ch.qos.logback:logback-classic:1.2.7")
 
     testImplementation(kotlin("test"))
+    testImplementation("com.soywiz.korlibs.klock:klock-jvm:2.4.8")
 }
 
 tasks.test {

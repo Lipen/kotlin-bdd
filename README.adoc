@@ -19,10 +19,11 @@ image:https://hitsofcode.com/github/Lipen/kotlin-bdd["Hits-of-Code",link="https:
 :link-lib-bdd: https://github.com/sybila/biodivine-lib-bdd[lib-bdd]
 :link-sylvan: https://github.com/trolando/sylvan[Sylvan]
 :link-adiar: https://github.com/SSoelvsten/adiar[Adiar]
+:link-kobdd: https://github.com/korifey/kobdd[kobdd]
 
 `kotlin-bdd` was heavily inspired by {link-cudd} (C/C++), {link-dd} (Python) and {link-lib-bdd} (Rust).
 
-CAUTION: `kotlin-bdd` is currently a purely educational project and may not be as feature-complete and/or performant as full-fledged BDD packages such as {link-cudd}, {link-sylvan}, {link-adiar}.
+CAUTION: `kotlin-bdd` is currently a purely educational project and may not be as feature-complete and/or performant as full-fledged BDD packages such as {link-cudd}, {link-sylvan}, {link-adiar}, {link-kobdd}.
 
 == Installation
 
@@ -44,9 +45,18 @@ dependencies {
 // TODO
 ----
 
+== Run examples
+
+=== PHP
+
+----
+gw :examples:shadowJar
+java -cp examples/build/libs/examples.jar com.github.lipen.bdd.PHPKt
+----
+
 '''
 
-=== Bibliography
+== Bibliography
 
 - R. E. Bryant.
 *"Graph-Based Algorithms for Boolean Function Manipulation,"* 1986. link:https://doi.org/10.1109/TC.1986.1676819[DOI].
