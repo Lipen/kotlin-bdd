@@ -21,9 +21,9 @@ image:https://hitsofcode.com/github/Lipen/kotlin-bdd["Hits-of-Code",link="https:
 :link-adiar: https://github.com/SSoelvsten/adiar[Adiar]
 :link-kobdd: https://github.com/korifey/kobdd[kobdd]
 
-`kotlin-bdd` was heavily inspired by {link-cudd} (C/C++), {link-dd} (Python) and {link-lib-bdd} (Rust).
+`kotlin-bdd` was heavily inspired by {link-cudd} (C/C++), {link-dd} (Python) and {link-lib-bdd} (Rust), {link-kobdd} (Kotlin).
 
-CAUTION: `kotlin-bdd` is currently a purely educational project and may not be as feature-complete and/or performant as full-fledged BDD packages such as {link-cudd}, {link-sylvan}, {link-adiar}, {link-kobdd}.
+CAUTION: `kotlin-bdd` is currently a purely educational project and may not be as feature-complete and/or performant as full-fledged BDD packages such as {link-cudd}, {link-sylvan}, {link-adiar}.
 
 == Installation
 
