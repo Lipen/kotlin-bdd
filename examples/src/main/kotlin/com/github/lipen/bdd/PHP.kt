@@ -49,22 +49,28 @@ fun php(pigeons: Int, holes: Int = pigeons - 1) {
     var f = bdd.one
     var totaltime = 0.0
 
+    val useGC = true
+    val useProj = true
+
     fun v(i: Int, j: Int) = (i - 1) * holes + j
 
     println("Generating and adding PHP clauses...")
-    val file = File("data-php-${pigeons}.txt")
+    val file = File("data-php-${pigeons}${if (useProj) "" else "_no-proj"}${if (useGC) "" else "_no-gc"}.txt")
     println("Writing data to: '$file'")
     file.sink().buffer().use {
         with(it) {
             writeUtf8("step name BDD.size f.size steptime totaltime hits misses\n")
+            // writeUtf8("0 init ${bdd.realSize()} ${bdd.descendants(1).size} 0.0 0.0 0 0\n")
 
             var count = 0
 
-            fun step(name: String, init: () -> Unit) {
+            fun step(name: String, block: () -> Unit) {
                 val steptime = measureTime {
-                    init()
-                    if ((count + 1) % 50 == 0) {
-                        bdd.collectGarbage(listOf(f))
+                    block()
+                    if (useGC) {
+                        if ((count + 1) % 50 == 0) {
+                            bdd.collectGarbage(listOf(f))
+                        }
                     }
                 }
                 val fsize = bdd.descendants(f).size
@@ -95,10 +101,12 @@ fun php(pigeons: Int, holes: Int = pigeons - 1) {
                         f = bdd.applyAnd(f, c)
                     }
                 }
-                if (j < holes) {
-                    for (i in 1..pigeons) {
-                        step("Proj") {
-                            f = bdd.exists(f, v(i, j))
+                if (useProj) {
+                    if (j < holes) {
+                        for (i in 1..pigeons) {
+                            step("Proj") {
+                                f = bdd.exists(f, v(i, j))
+                            }
                         }
                     }
                 }
