@@ -12,7 +12,7 @@ image:https://github.com/Lipen/kotlin-bdd/workflows/Build/badge.svg?branch=maste
 image:https://jitpack.io/v/Lipen/kotlin-bdd.svg["JitPack",link="https://jitpack.io/p/Lipen/kotlin-bdd"]
 image:https://hitsofcode.com/github/Lipen/kotlin-bdd["Hits-of-Code",link="https://hitsofcode.com/view/github/Lipen/kotlin-bdd"]
 
-> This project provides a Kotlin implementation of (Reduced Ordered) Binary Decision Diagrams with shared representation and complementary edges.
+> This project provides a Kotlin implementation of (Reduced Ordered) Binary Decision Diagrams with shared representation and complemented edges.
 
 :link-cudd: https://github.com/ivmai/cudd[CUDD]
 :link-dd: https://github.com/tulip-control/dd[dd]

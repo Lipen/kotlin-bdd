@@ -18,140 +18,118 @@ private fun hash3(a: Int, b: Int, c: Int): Int {
     require(a >= 0)
     require(b >= 0)
     require(c >= 0)
-    return hash2(hash2(a, b), c)
+    return hash2(hash2(a, b).absoluteValue, c).absoluteValue
 }
 
-class BDD {
-    fun realSize(): Int = (1..size).count { storage[it] != null }
+@JvmInline
+value class Ref(val index: Int) : Comparable<Ref> {
+    val negated: Boolean
+        get() = index < 0
 
-    var size: Int = 2
-        private set
-    private var capacity: Int = 1 shl 22
-    private val storage: Array<Node?> = arrayOfNulls(capacity)
-    private val buckets: IntArray = IntArray(capacity)
-    private val nextTable: IntArray = IntArray(capacity)
+    init {
+        require(index != 0)
+    }
 
-    private val iteCache = Cache<Triple<Int, Int, Int>, Int>("ITE")
-    private val andCache = Cache<Pair<Int, Int>, Int>("AND")
-    private val orCache = Cache<Pair<Int, Int>, Int>("OR")
-    private val xorCache = Cache<Pair<Int, Int>, Int>("XOR")
+    operator fun unaryMinus(): Ref {
+        return Ref(-index)
+    }
+
+    override fun compareTo(other: Ref): Int {
+        return index.compareTo(other.index)
+    }
+
+    override fun toString(): String {
+        // return "@$index"
+        return "${if (negated) "~" else ""}@${index.absoluteValue}"
+    }
+}
+
+class BDD(
+    val storageCapacity: Int = 1 shl 20, // 24 ~ 320MB, 25 ~ 640MB, 26 ~ 1G
+    val bucketsCapacity: Int = storageCapacity,
+) {
+    private val buckets = IntArray(bucketsCapacity)
+    internal val storage = Storage(storageCapacity)
+
+    val size: Int get() = storage.lastIndex
+    val realSize: Int get() = storage.realSize
+
+    fun maxChain(): Int = chains().maxOrNull() ?: 0
+    fun chains(): Sequence<Int> = buckets.asSequence().map { i ->
+        var count = 0
+        var j = i
+        while (j != 0) {
+            count++
+            j = next(j)
+        }
+        count
+    }
+
+    private val iteCache = Cache<Triple<Int, Ref, Ref>, Ref>("ITE")
+    private val andCache = Cache<Pair<Ref, Ref>, Ref>("AND")
+    private val orCache = Cache<Pair<Ref, Ref>, Ref>("OR")
+    private val xorCache = Cache<Pair<Ref, Ref>, Ref>("XOR")
     private val caches = arrayOf(iteCache, andCache, orCache, xorCache)
     val cacheHits: Int
         get() = caches.sumOf { it.hits }
     val cacheMisses: Int
         get() = caches.sumOf { it.misses }
 
-    val terminal: Node = Node(0, 0, 0)
+    val andCacheMap = andCache.map
+    val orCacheMap = orCache.map
 
-    // val terminal: Node = Node(1, 0, 0, 0)
-    val one: Int = 1
-    val zero: Int = -1
+    val one = Ref(1)
+    val zero = Ref(-1)
 
     init {
-        storage[1] = terminal
+        storage.alloc(1) // terminal node
         buckets[0] = 1
     }
 
-    data class Node(
-        val v: Int,
-        val low: Int,
-        val high: Int,
-    ) {
-        // override fun equals(other: Any?): Boolean {
-        //     if (this === other) return true
-        //     if (javaClass != other?.javaClass) return false
-        //
-        //     other as Node
-        //
-        //     if (v != other.v) return false
-        //     if (low != other.low) return false
-        //     if (high != other.high) return false
-        //
-        //     return true
-        // }
-        //
-        // override fun hashCode(): Int {
-        //     val bitmask = capacity - 1
-        //     return hash3(v, low.absoluteValue, high.absoluteValue) and bitmask
-        // }
-        //
-        // override fun toString(): String {
-        //     return "Node(v = $v, low = $low, high = $high)"
-        // }
+    fun variable(i: Int): Int = storage.variable(i)
+    fun variable(node: Ref): Int = variable(node.index.absoluteValue)
+
+    fun low(i: Int): Ref = Ref(storage.low(i))
+    fun low(node: Ref): Ref = low(node.index.absoluteValue)
+
+    fun high(i: Int): Ref = Ref(storage.high(i))
+    fun high(node: Ref): Ref = high(node.index.absoluteValue)
+
+    fun next(i: Int): Int = storage.next(i)
+    fun next(node: Ref): Int = next(node.index.absoluteValue)
+
+    fun isZero(node: Ref): Boolean = node == zero
+    fun isOne(node: Ref): Boolean = node == one
+    fun isTerminal(node: Ref): Boolean = isZero(node) || isOne(node)
+
+    private fun addNode(v: Int, low: Ref, high: Ref): Ref {
+        val index = storage.add(v, low.index, high.index)
+        return Ref(index)
     }
 
-    fun getNode(index: Int): Node? {
-        return storage[index.absoluteValue]
+    private fun lookup(v: Int, low: Ref, high: Ref): Int {
+        val bitmask = bucketsCapacity - 1
+        return hash3(v, low.index.absoluteValue, high.index.absoluteValue) and bitmask
+        // return hash3(v, low.absoluteValue, high.absoluteValue).mod(capacity2)
     }
 
-    fun terminal(value: Boolean): Int {
-        return if (value) one else zero
-    }
+    @Suppress("FoldInitializerAndIfToElvis")
+    fun mkNode(v: Int, low: Ref, high: Ref): Ref {
+        logger.debug { "mk(v = $v, low = $low, high = $high)" }
 
-    fun variable(v: Int): Int {
-        require(v != 0)
-        if (v < 0) return -variable(-v)
-        return mkNode(v = v, low = zero, high = one)
-    }
-
-    fun isZero(index: Int): Boolean {
-        return index == -1
-    }
-
-    fun isOne(index: Int): Boolean {
-        return index == 1
-    }
-
-    fun isTerminal(index: Int): Boolean {
-        return isZero(index) || isOne(index)
-    }
-
-    @JvmName("_isZero")
-    private fun Int.isZero(): Boolean = isZero(this)
-
-    @JvmName("_isOne")
-    private fun Int.isOne(): Boolean = isOne(this)
-
-    @JvmName("_isTerminal")
-    private fun Int.isTerminal(): Boolean = isTerminal(this)
-
-    private fun getFreeIndex(): Int {
-        // return size++
-        for (i in 2 until size) {
-            if (storage[i] == null) {
-                return i
-            }
-        }
-        return size++
-    }
-
-    private fun addNode(v: Int, low: Int, high: Int): Int {
-        // val index = size++
-        val index = getFreeIndex()
-        storage[index] = Node(v, low, high)
-        // storage[index] = Node(index, v, low, high)
-        return index
-    }
-
-    private fun lookup(v: Int, low: Int, high: Int): Int {
-        val bitmask = capacity - 1
-        return hash3(v, low.absoluteValue, high.absoluteValue) and bitmask
-    }
-
-    fun mkNode(v: Int, low: Int, high: Int): Int {
-        // require(v > 0)
-        // require(low != 0)
-        // require(high != 0)
+        require(v > 0)
+        require(low.index != 0)
+        require(high.index != 0)
 
         // Handle canonicity
-        if (high < 0) {
+        if (high.negated) {
             logger.debug { "mk: restoring canonicity" }
-            return -mkNode(v, -low, -high)
+            return -mkNode(v = v, low = -low, high = -high)
         }
 
         // Handle duplicates
         if (low == high) {
-            logger.debug { "mk: duplicates" }
+            logger.debug { "mk: duplicates @$low == @$high" }
             return low
         }
 
@@ -161,23 +139,25 @@ class BDD {
 
         if (index == 0) {
             // Create new node
-            return addNode(v, low, high).also { buckets[bucketIndex] = it }
+            return addNode(v, low, high).also { buckets[bucketIndex] = it.index }
                 .also { logger.debug { "mk: created new node @$it" } }
         }
 
         while (true) {
-            val node = storage[index]
-                ?: error("NPE @$index")
-            if (node.v == v && node.low == low && node.high == high) {
+            check(index > 0)
+
+            if (variable(index) == v && low(index) == low && high(index) == high) {
                 // The node already exists
-                logger.debug { "mk: node @$index $node already exists" }
-                return index
+                logger.debug { "mk: node @$index already exists" }
+                return Ref(index)
             }
-            val next = nextTable[index]
+
+            val next = next(index)
+
             if (next == 0) {
                 // Create new node and add it to the bucket
-                return addNode(v, low, high).also { nextTable[index] = it }
-                    .also { logger.debug { "mk: created new node @$it" } }
+                return addNode(v, low, high).also { storage.setNext(index, it.index) }
+                    .also { logger.debug { "mk: created new node $it after $index" } }
             } else {
                 // Go to the next node in the bucket
                 logger.debug { "mk: iterating over the bucket to $next" }
@@ -186,229 +166,336 @@ class BDD {
         }
     }
 
-    fun collectGarbage(roots: List<Int>) {
+    fun mkVar(v: Int): Ref {
+        require(v != 0)
+        return if (v < 0) {
+            -mkNode(v = -v, low = zero, high = one)
+        } else {
+            mkNode(v = v, low = zero, high = one)
+        }
+    }
+
+    fun collectGarbage(roots: List<Ref>) {
         logger.debug { "Collecting garbage..." }
 
         caches.forEach { it.map.clear() }
 
-        val used = mutableSetOf(1)
+        val alive = mutableSetOf(1)
         for (root in roots) {
-            _descendants(root, used)
+            _descendants(root, alive)
         }
-        logger.debug { "Alive: ${used.sorted()}" }
-
-        // val ndead = size - used.size
-        // val dead = ArrayDeque<Int>(ndead)
-        // for (i in 1..size) {
-        //     if (i !in used) {
-        //         dead.add(i)
-        //     }
-        // }
+        logger.debug { "Alive: ${alive.sorted()}" }
 
         for (i in buckets.indices) {
             var index = buckets[i]
 
             if (index != 0) {
-                logger.debug { "Cleaning bucket #$i pointing to @$index ${getNode(index)}..." }
+                logger.debug { "Cleaning bucket #$i pointing to $index..." }
 
-                while (index != 0 && index !in used) {
-                    logger.debug { "(pre) Dropping @$index ${getNode(index)}, next = ${nextTable[index]}" }
-                    storage[index] = null
-                    val next = nextTable[index]
-                    nextTable[index] = 0
+                while (index != 0 && index !in alive) {
+                    val next = next(index)
+                    logger.debug { "Dropping $index, next = $next" }
+                    storage.drop(index)
                     index = next
                 }
 
-                logger.debug { "Relinking bucket #$i to @$index ${getNode(index)}, next = ${nextTable[index]}" }
+                logger.debug { "Relinking bucket #$i to $index, next = ${next(index)}" }
                 buckets[i] = index
 
                 var prev = index
-                if (index != 0) {
-                    index = nextTable[index]
-                }
-
-                while (index != 0) {
-                    val next = nextTable[index]
-                    if (index !in used) {
-                        logger.debug { "(after) Dropping @$index ${getNode(index)}, next = ${nextTable[index]}" }
-                        storage[index] = null
-                        nextTable[index] = 0
-                        logger.debug { "(after) Relinking next(@$prev) to @$next" }
-                        nextTable[prev] = next
-                    } else {
-                        logger.debug { "(after) Not dropping @$index ${getNode(index)}, next = ${nextTable[index]}" }
-                        prev = index
+                while (prev != 0) {
+                    var curr = next(prev)
+                    while (curr != 0) {
+                        if (curr !in alive) {
+                            val next = next(curr)
+                            logger.debug { "Dropping $curr, prev = $prev, next = $next" }
+                            storage.drop(curr)
+                            curr = next
+                        } else {
+                            logger.debug { "Keeping $curr, prev = $prev}" }
+                            break
+                        }
                     }
-                    index = next
+                    if (next(prev) != curr) {
+                        logger.debug { "Relinking next($prev) from ${next(prev)} to $curr" }
+                        storage.setNext(prev, curr)
+                    }
+                    prev = curr
                 }
             }
         }
     }
 
-    fun topCofactors(index: Int, v: Int): Pair<Int, Int> {
-        // index - node
-        // v - variable
+    fun topCofactors(node: Ref, v: Int): Pair<Ref, Ref> {
         require(v > 0)
-
-        if (isTerminal(index)) {
-            return Pair(index, index)
-        }
-        val node = getNode(index)!!
-        if (v < node.v) {
-            return Pair(index, index)
-        }
-        check(v == node.v)
-        return if (index < 0) {
-            Pair(-node.low, -node.high)
-        } else {
-            Pair(node.low, node.high)
+        return when {
+            isTerminal(node) -> Pair(node, node)
+            v < variable(node) -> Pair(node, node)
+            else -> {
+                check(v == variable(node))
+                if (node.negated) {
+                    Pair(-low(node), -high(node))
+                } else {
+                    Pair(low(node), high(node))
+                }
+            }
         }
     }
 
-    @JvmName("_topCofactors")
-    private fun Int.topCofactors(v: Int): Pair<Int, Int> = topCofactors(this, v)
-
-    private fun _apply(u: Int, v: Int, f: (Int, Int) -> Int): Int {
+    private inline fun _apply(u: Ref, v: Ref, f: (Ref, Ref) -> Ref): Ref {
         logger.debug { "_apply(u = $u, v = $v)" }
 
         require(!isTerminal(u))
         require(!isTerminal(v))
 
-        val a = getNode(u)!!
-        val b = getNode(v)!!
-
-        val i = a.v
-        val j = b.v
+        val i = variable(u)
+        val j = variable(v)
         val m = min(i, j)
-        logger.debug { "_apply(@$u, @$v): min variable = $m" }
+        logger.debug { "_apply($u, $v): min variable = $m" }
 
-        // cofactors of u,v
-        val (u0, u1) = u.topCofactors(m)
-        logger.debug { "_apply(@$u, @$v): cofactors of u = $u:" }
-        logger.debug { "    u0 = @$u0 (${getNode(u0)})" }
-        logger.debug { "    u1 = @$u1 (${getNode(u1)})" }
-        val (v0, v1) = v.topCofactors(m)
-        logger.debug { "_apply(@$u, @$v): cofactors of v = $v:" }
-        logger.debug { "    v0 = @$v0 (${getNode(v0)})" }
-        logger.debug { "    v1 = @$v1 (${getNode(v1)})" }
-
+        // cofactors of u
+        val (u0, u1) = topCofactors(u, m)
+        logger.debug { "_apply($u, $v): cofactors of u = $u:" }
+        logger.debug { "    u0 = $u0 (${getTriplet(u0)})" }
+        logger.debug { "    u1 = $u1 (${getTriplet(u1)})" }
+        // cofactors of v
+        val (v0, v1) = topCofactors(v, m)
+        logger.debug { "_apply($u, $v): cofactors of v = $v:" }
+        logger.debug { "    v0 = $v0 (${getTriplet(v0)})" }
+        logger.debug { "    v1 = $v1 (${getTriplet(v1)})" }
         // cofactors of the resulting node w
         val w0 = f(u0, v0)
         val w1 = f(u1, v1)
-        logger.debug { "_apply(@$u, @$v): cofactors of w:" }
-        logger.debug { "    w0 = @$w0 (${getNode(w0)})" }
-        logger.debug { "    w1 = @$w1 (${getNode(w1)})" }
+        logger.debug { "_apply($u, $v): cofactors of w:" }
+        logger.debug { "    w0 = $w0 (${getTriplet(w0)})" }
+        logger.debug { "    w1 = $w1 (${getTriplet(w1)})" }
 
         return mkNode(v = m, low = w0, high = w1).also {
-            logger.debug { "_apply(@$u, @$v): w = $it (${getNode(it)})" }
+            logger.debug { "_apply($u, $v): w = $it (${getTriplet(it)})" }
         }
     }
 
-    fun applyAnd(u: Int, v: Int): Int {
+    fun applyAnd(u: Ref, v: Ref): Ref {
         logger.debug { "applyAnd(u = $u, v = $v)" }
 
-        if (u.isZero() || v.isZero()) {
-            logger.debug { "applyAnd(@$u, @$v): either u or v is Zero" }
+        if (isZero(u) || isZero(v)) {
+            logger.debug { "applyAnd($u, $v): either u or v is Zero" }
             return zero
         }
-        if (u.isOne()) {
-            logger.debug { "applyAnd(@$u, @$v): u is One" }
+        if (isOne(u)) {
+            logger.debug { "applyAnd($u, $v): u is One" }
             return v
         }
-        if (v.isOne()) {
-            logger.debug { "applyAnd(@$u, @$v): v is One" }
+        if (isOne(v)) {
+            logger.debug { "applyAnd($u, $v): v is One" }
             return u
         }
         if (u == v) {
-            logger.debug { "applyAnd(@$u, @$v): u == v" }
+            logger.debug { "applyAnd($u, $v): u == v" }
             return u
         }
         if (u == -v) {
-            logger.debug { "applyAnd(@$u, @$v): u == ~v" }
+            logger.debug { "applyAnd($u, $v): u == ~v" }
             return zero
         }
+
+        // val uVar = variable(u)
+        // val vVar = variable(v)
+        // if ((uVar > vVar) || (uVar == vVar && u.index > v.index)) {
+        //     return andCache.getOrCompute(Pair(v, u)) {
+        //         _apply(v, u, ::applyAnd)
+        //     }
+        // }
 
         return andCache.getOrCompute(Pair(u, v)) {
             _apply(u, v, ::applyAnd)
         }
     }
 
-    fun applyOr(u: Int, v: Int): Int {
+    fun applyOr(u: Ref, v: Ref): Ref {
         logger.debug { "applyOr(u = $u, v = $v)" }
 
-        if (u.isOne() || v.isOne()) {
-            logger.debug { "applyOr(@$u, @$v): either u or v is One" }
+        if (isOne(u) || isOne(v)) {
+            logger.debug { "applyOr($u, $v): either u or v is One" }
             return one
         }
-        if (u.isZero()) {
-            logger.debug { "applyOr(@$u, @$v): u is Zero" }
+        if (isZero(u)) {
+            logger.debug { "applyOr($u, $v): u is Zero" }
             return v
         }
-        if (v.isZero()) {
-            logger.debug { "applyOr(@$u, @$v): v is Zero" }
+        if (isZero(v)) {
+            logger.debug { "applyOr($u, $v): v is Zero" }
             return u
         }
         if (u == v) {
-            logger.debug { "applyOr(@$u, @$v): u == v" }
+            logger.debug { "applyOr($u, $v): u == v" }
             return u
         }
         if (u == -v) {
-            logger.debug { "applyOr(@$u, @$v): u == ~v" }
+            logger.debug { "applyOr($u, $v): u == ~v" }
             return one
         }
+
+        // val uVar = variable(u)
+        // val vVar = variable(v)
+        // if ((uVar > vVar) || (uVar == vVar && u.index > v.index)) {
+        //     return orCache.getOrCompute(Pair(v, u)) {
+        //         _apply(v, u, ::applyOr)
+        //     }
+        // }
 
         return orCache.getOrCompute(Pair(u, v)) {
             _apply(u, v, ::applyOr)
         }
     }
 
-    private fun _descendants(index: Int, visited: MutableSet<Int>) {
-        val r = index.absoluteValue
-        if (visited.add(r)) {
-            logger.debug { "visited $index" }
-            val node = storage[r]!!
-            _descendants(node.low, visited)
-            _descendants(node.high, visited)
+    private fun _descendants(node: Ref, visited: MutableSet<Int>) {
+        val i = node.index.absoluteValue
+        if (visited.add(i)) {
+            _descendants(low(i), visited)
+            _descendants(high(i), visited)
         }
     }
 
-    fun descendants(index: Int): Set<Int> {
+    fun descendants(node: Ref): Set<Int> {
         val visited = mutableSetOf(1)
-        _descendants(index, visited)
+        _descendants(node, visited)
         return visited
     }
 
-    private fun _exists(index: Int, v: Int, cache: Cache<Int, Int>): Int {
-        logger.debug { "_exists(@$index, $v)" }
-        if (index.isTerminal()) {
-            return index
+    private fun _exists(node: Ref, j: Int, vars: Set<Int>, cache: Cache<Ref, Ref>): Ref {
+        logger.debug { "_exists($node, $vars) ($node = ${getTriplet(node)})" }
+        if (isTerminal(node)) {
+            return node
         }
-        return cache.getOrCompute(index) {
-            val node = getNode(index)!!
-            val low = node.low.let { if (index < 0) -it else it }
-            val high = node.high.let { if (index < 0) -it else it }
-            when {
-                v < node.v -> index
-                v > node.v -> {
-                    val r0 = _exists(low, v, cache)
-                    val r1 = _exists(high, v, cache)
-                    logger.debug { "_exists(@$index, $v): cofactors of $node by $v:" }
-                    logger.debug { "  r0 = $r0 (${getNode(r0)}" }
-                    logger.debug { "  r1 = $r1 (${getNode(r1)}" }
-                    mkNode(v = node.v, low = r0, high = r1)
+        return cache.getOrCompute(node) {
+            val i = node.index.absoluteValue
+            val v = variable(i)
+            val low = low(i).let { if (node.negated) -it else it }
+            val high = high(i).let { if (node.negated) -it else it }
+
+            var m = j
+            val sortedVars = vars.sorted()
+            // skip non-essential variables
+            while (m < vars.size) {
+                if (sortedVars[m] < v) {
+                    m++
+                } else {
+                    break
                 }
-                else -> applyOr(low, high)
             }
+            // exhausted valuation
+            if (m == vars.size) {
+                return@getOrCompute node
+            }
+
+            val r0 = _exists(low, m, vars, cache)
+            val r1 = _exists(high, m, vars, cache)
+
+            if (v in vars) {
+                applyOr(r0, r1)
+            } else {
+                mkNode(v = v, low = r0, high = r1)
+            }
+
+            // when {
+            //     v < variable(i) -> node
+            //     v > variable(i) -> {
+            //         val r0 = _exists(low, v, cache)
+            //         val r1 = _exists(high, v, cache)
+            //         logger.debug { "_exists($node, $v): cofactors of $node (${getTriplet(node)}) by $v:" }
+            //         logger.debug { "  r0 = $r0 (${getTriplet(r0)}" }
+            //         logger.debug { "  r1 = $r1 (${getTriplet(r1)}" }
+            //         mkNode(v = variable(i), low = r0, high = r1)
+            //     }
+            //     else -> applyOr(low, high)
+            // }
         }.also {
-            logger.debug { "_exists(@$index, $v) = @$it (${getNode(it)})" }
+            logger.debug { "_exists($node, $vars) = $it (${getTriplet(it)})" }
         }
     }
 
-    fun exists(index: Int, v: Int): Int {
-        logger.debug { "exists(@$index, $v)" }
-        require(v > 0)
-        val cache = Cache<Int, Int>("EXISTS($v)")
-        return _exists(index, v, cache)
+    fun exists(node: Ref, vars: Set<Int>): Ref {
+        logger.debug { "exists($node, $vars)" }
+        val cache = Cache<Ref, Ref>("EXISTS($vars)")
+        return _exists(node, 0, vars, cache).also {
+            logger.debug { "exists($node, $vars) = $it (${getTriplet(node)})" }
+            logger.debug { "  cache ${cache.name}: hits=${cache.hits}, misses=${cache.misses}" }
+        }
+    }
+
+    fun exists(node: Ref, v: Int): Ref {
+        logger.debug { "exists($node, $v)" }
+        return exists(node, setOf(v))
+    }
+
+    private fun _relProduct(
+        f: Ref,
+        g: Ref,
+        vars: Set<Int>,
+        cache: Cache<Triple<Ref, Ref, Set<Int>>, Ref>,
+    ): Ref {
+        if (isOne(f)) {
+            return exists(g, vars)
+        }
+        if (isOne(g)) {
+            return exists(f, vars)
+        }
+
+        return cache.getOrCompute(Triple(f, g, vars)) {
+            val i = variable(f)
+            val j = variable(g)
+            val m = min(i, j)
+
+            val (f0, f1) = topCofactors(f, m)
+            val (g0, g1) = topCofactors(g, m)
+            val h0 = _relProduct(f0, g0, vars, cache)
+            val h1 = _relProduct(f1, g1, vars, cache)
+
+            if (m in vars) {
+                applyOr(h0, h1)
+            } else {
+                mkNode(v = m, low = h0, high = h1)
+            }
+        }
+    }
+
+    fun relProduct(f: Ref, g: Ref, vars: Set<Int>): Ref {
+        if (isZero(f) || isZero(g)) {
+            return zero
+        }
+        if (isOne(f) && isOne(g)) {
+            return one
+        }
+        val relProductCache: Cache<Triple<Ref, Ref, Set<Int>>, Ref> = Cache("RELPROD($vars)")
+        return _relProduct(f, g, vars, relProductCache)
+    }
+
+    private fun _oneSat(node: Ref, parity: Boolean, model: MutableList<Boolean?>): Boolean {
+        if (isTerminal(node)) {
+            return parity
+        }
+        val i = node.index.absoluteValue
+        val v = variable(i)
+        model[v - 1] = true
+        if (_oneSat(high(i), parity, model)) {
+            return true
+        }
+        model[v - 1] = false
+        if (_oneSat(low(i), parity xor low(i).negated, model)) {
+            return true
+        }
+        return false
+    }
+
+    fun oneSat(node: Ref, n: Int): List<Boolean?> {
+        // n - number of variables
+        val model = MutableList<Boolean?>(n) { null }
+        return if (_oneSat(node, node.negated, model)) {
+            model
+        } else {
+            emptyList()
+        }
     }
 }
 
@@ -417,9 +504,9 @@ fun main() {
     val one = bdd.one
     val zero = bdd.zero
 
-    val x1 = bdd.variable(1)
-    val x2 = bdd.variable(2)
-    val x3 = bdd.variable(3)
+    val x1 = bdd.mkVar(1)
+    val x2 = bdd.mkVar(2)
+    val x3 = bdd.mkVar(3)
     // println("-".repeat(42))
     // val f = bdd.applyAnd(-x1, x2)
     // println("-".repeat(42))
@@ -437,23 +524,44 @@ fun main() {
     val e = bdd.exists(f, 3)
 
     println("-".repeat(42))
-    println("f = @$f = ${bdd.getNode(f)}")
-    println("e = @$e = ${bdd.getNode(e)}")
-    println("g = @$g = ${bdd.getNode(g)}")
+    println("f = $f = ${bdd.getTriplet(f)}")
+    println("e = $e = ${bdd.getTriplet(e)}")
+    println("g = $g = ${bdd.getTriplet(g)}")
+    println("bdd.size = ${bdd.size}, bdd.realSize() = ${bdd.realSize}")
 
     println("-".repeat(42))
-    for (i in 1 until bdd.size) {
-        val node = bdd.getNode(i)
-        println("@$i = $node")
+    println("BDD nodes (${bdd.realSize}):")
+    for (i in 1..bdd.size) {
+        if (bdd.storage.dataOccupied[i]) {
+            if (i > 1) {
+                println("$i (v=${bdd.variable(i)}, low=${bdd.low(i)}, high=${bdd.high(i)})")
+            } else {
+                println("$i (terminal)")
+            }
+        }
     }
 
-    // println("-".repeat(42))
-    // println("Collecting garbage...")
-    // bdd.collectGarbage(listOf(f,e,g))
-    //
-    // println("-".repeat(42))
-    // for (i in 1 until bdd.size) {
-    //     val node = bdd.getNode(i)
-    //     println("@$i = $node")
-    // }
+    println("-".repeat(42))
+    println("Collecting garbage...")
+    bdd.collectGarbage(listOf(f, e, g))
+
+    println("-".repeat(42))
+    println("BDD nodes (${bdd.realSize}) after GC:")
+    for (i in 1..bdd.size) {
+        if (bdd.storage.dataOccupied[i]) {
+            if (i > 1) {
+                println("$i (v=${bdd.variable(i)}, low=${bdd.low(i)}, high=${bdd.high(i)})")
+            } else {
+                println("$i (terminal)")
+            }
+        }
+    }
+
+    println("-".repeat(42))
+    println("bdd.size = ${bdd.size}")
+    println("bdd.realSize = ${bdd.realSize}")
+    println("bdd.cacheHits = ${bdd.cacheHits}")
+    println("bdd.cacheMisses = ${bdd.cacheMisses}")
+    println("bdd.maxChain() = ${bdd.maxChain()}")
+    // println("bdd.chains() = ${bdd.chains()}")
 }
