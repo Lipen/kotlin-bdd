@@ -74,6 +74,10 @@ class BDD(
         get() = caches.sumOf { it.hits }
     val cacheMisses: Int
         get() = caches.sumOf { it.misses }
+    val namedCacheHits: Map<String, Int>
+        get() = caches.associate { it.name to it.hits }
+    val namedCacheMisses: Map<String, Int>
+        get() = caches.associate { it.name to it.misses }
 
     val andCacheMap = andCache.map
     val orCacheMap = orCache.map
@@ -113,7 +117,6 @@ class BDD(
         // return hash3(v, low.absoluteValue, high.absoluteValue).mod(capacity2)
     }
 
-    @Suppress("FoldInitializerAndIfToElvis")
     fun mkNode(v: Int, low: Ref, high: Ref): Ref {
         logger.debug { "mk(v = $v, low = $low, high = $high)" }
 
@@ -129,7 +132,7 @@ class BDD(
 
         // Handle duplicates
         if (low == high) {
-            logger.debug { "mk: duplicates @$low == @$high" }
+            logger.debug { "mk: duplicates $low == $high" }
             return low
         }
 
@@ -140,7 +143,7 @@ class BDD(
         if (index == 0) {
             // Create new node
             return addNode(v, low, high).also { buckets[bucketIndex] = it.index }
-                .also { logger.debug { "mk: created new node @$it" } }
+                .also { logger.debug { "mk: created new node $it" } }
         }
 
         while (true) {
@@ -148,7 +151,7 @@ class BDD(
 
             if (variable(index) == v && low(index) == low && high(index) == high) {
                 // The node already exists
-                logger.debug { "mk: node @$index already exists" }
+                logger.debug { "mk: node $index already exists" }
                 return Ref(index)
             }
 
@@ -175,15 +178,12 @@ class BDD(
         }
     }
 
-    fun collectGarbage(roots: List<Ref>) {
+    fun collectGarbage(roots: Iterable<Ref>) {
         logger.debug { "Collecting garbage..." }
 
         caches.forEach { it.map.clear() }
 
-        val alive = mutableSetOf(1)
-        for (root in roots) {
-            _descendants(root, alive)
-        }
+        val alive = descendants(roots)
         logger.debug { "Alive: ${alive.sorted()}" }
 
         for (i in buckets.indices) {
@@ -240,6 +240,160 @@ class BDD(
                 }
             }
         }
+    }
+
+    fun applyIte(f: Ref, g: Ref, h: Ref): Ref {
+        logger.debug { "applyIte(f = $f, g = $g, h = $h)" }
+
+        // Terminal cases for ITE(F,G,H):
+        // - One variable cases (F is constant)
+        //   - ite(1,G,H) => G
+        //   - ite(0,G,H) => H
+        // - Replace variables with constants, if possible
+        //   - (g==f) ite(F,F,H) => ite(F,1,H) => F+H => ~(~F*~H)
+        //   - (h==f) ite(F,G,F) => ite(F,G,0) => ~F*H
+        //   - (g==~f) ite(F,~F,H) => ite(F,0,H) => F*G
+        //   - (h==~f) ite(F,G,~F) => ite(F,G,1) => ~F+G
+        // - Remaining one variable cases
+        //   - (h==g) ite(F,G,G) => G
+        //   - (h==~g) ite(F,G,~G) => F<->G => F^~G
+        //   - ite(F,1,0) => F
+        //   - ite(F,0,1) => ~F
+
+        // ite(1,G,H) => G
+        if (isOne(f)) {
+            logger.debug { "applyIte: f is 1" }
+            return g
+        }
+        // ite(0,G,H) => H
+        if (isZero(f)) {
+            logger.debug { "applyIte: f is 0" }
+            return h
+        }
+
+        // From now one, F is known not to be a constant
+        check(!isTerminal(f))
+
+        // ite(F,F,H) == ite(F,1,H) == F + H
+        if (isTerminal(g) || f == g) {
+            logger.debug { "applyIte: either g is terminal or f == g" }
+            @Suppress("LiftReturnOrAssignment")
+            // ite(F,1,0) => F
+            if (isZero(h)) {
+                logger.debug { "applyIte: h is 0" }
+                return f
+            }
+            // F + H => ~(~F * ~H)
+            else {
+                logger.debug { "applyIte: h is not 0" }
+                return -applyAnd(-f, -h)
+            }
+        }
+        // ite(F,~F,H) == ite(F,0,H) == ~F * H
+        else if (isZero(g) || f == -g) {
+            logger.debug { "applyIte: either g is 0 or f == ~g" }
+            @Suppress("LiftReturnOrAssignment")
+            // ite(F,0,1) => ~F
+            if (isOne(h)) {
+                logger.debug { "applyIte: h is 1" }
+                return -f
+            }
+            // ~F * H
+            else {
+                logger.debug { "applyIte: h is not 1" }
+                return applyAnd(f, h)
+            }
+        }
+
+        // ite(F,G,F) == ite(F,G,0) == F * G
+        if (isZero(h) || f == h) {
+            logger.debug { "applyIte: either h is 0 or f == h" }
+            return applyAnd(f, g)
+        }
+        // ite(F,G,~F) == ite(F,G,1) == ~F + G
+        else if (isOne(h) || f == -h) {
+            logger.debug { "applyIte: either h is 1 or f == ~h" }
+            return applyAnd(f, -g)
+        }
+
+        // ite(F,G,G) => G
+        if (g == h) {
+            logger.debug { "applyIte: g == h" }
+            return g
+        }
+        // ite(F,G,~G) == F <-> G == F ^ ~G
+        else if (g == -h) {
+            logger.debug { "applyIte: g == ~h" }
+            return applyXor(f, h)
+        }
+
+        // From here, there are no constants
+        check(!isTerminal(g))
+        check(!isTerminal(h))
+
+        // Make sure the first two pointers (f and g) are regular (not negated)
+        @Suppress("NAME_SHADOWING") var f = f
+        @Suppress("NAME_SHADOWING") var g = g
+        @Suppress("NAME_SHADOWING") var h = h
+        // ite(!F,G,H) => ite(F,H,G)
+        if (f.negated) {
+            f = -f
+            val tmp = g
+            g = h
+            h = tmp
+        }
+        var n = false
+        // ite(F,!G,H) => !ite(F,G,!H)
+        if (g.negated) {
+            g = -g
+            h = -h
+            n = true
+        }
+
+        return iteCache.getOrCompute(Triple(variable(f), g, h)) {
+            val i = variable(f)
+            val j = variable(g)
+            val k = variable(h)
+            val m = min(i, min(j, k))
+            logger.debug { "applyIte: min variable = $m" }
+
+            // cofactors of f,g,h
+            val (f0, f1) = topCofactors(f, m)
+            logger.debug { "applyIte: cofactors of f = $f:" }
+            logger.debug { "    f0 = $f0" }
+            logger.debug { "    f1 = $f1" }
+            val (g0, g1) = topCofactors(g, m)
+            logger.debug { "applyIte: cofactors of g = $g:" }
+            logger.debug { "    g0 = $g0" }
+            logger.debug { "    g1 = $g1" }
+            val (h0, h1) = topCofactors(h, m)
+            logger.debug { "applyIte: cofactors of h = $h:" }
+            logger.debug { "    h0 = $h0" }
+            logger.debug { "    h1 = $h1" }
+
+            // cofactors of the resulting node ("then" and "else" branches)
+            val t = applyIte(f1, g1, h1)
+            val e = applyIte(f0, g0, h0)
+
+            logger.debug { "applyIte: cofactors of res:" }
+            logger.debug { "    t = $t" }
+            logger.debug { "    e = $e" }
+            mkNode(v = m, low = e, high = t).let {
+                if (n) -it else it
+            }
+        }.also {
+            logger.debug { "applyIte(f = $f, g = $g, h = $h) = $it" }
+        }
+    }
+
+    fun applyAnd_ite(u: Ref, v: Ref): Ref {
+        logger.debug { "applyAnd_ite(u = $u, v = $v)" }
+        return applyIte(u, v, zero)
+    }
+
+    fun applyOr_ite(u: Ref, v: Ref): Ref {
+        logger.debug { "applyOr_ite(u = $u, v = $v)" }
+        return applyIte(u, one, v)
     }
 
     private inline fun _apply(u: Ref, v: Ref, f: (Ref, Ref) -> Ref): Ref {
@@ -349,6 +503,47 @@ class BDD(
         }
     }
 
+    fun applyXor(u: Ref, v: Ref): Ref {
+        logger.debug { "applyXor(u = $u, v = $v)" }
+
+        if (isOne(u)) {
+            logger.debug { "applyXor(1, v) = -v" }
+            return -v
+        }
+        if (isOne(v)) {
+            logger.debug { "applyXor(u, 1) = -u" }
+            return -u
+        }
+        if (isZero(u)) {
+            logger.debug { "applyXor(0, v) = v" }
+            return v
+        }
+        if (isZero(v)) {
+            logger.debug { "applyXor(u, 0) = u" }
+            return u
+        }
+        if (u == v) {
+            logger.debug { "applyXor(x, x) = 0" }
+            return zero
+        }
+        if (u == -v) {
+            logger.debug { "applyXor(x, -x) = 1" }
+            return one
+        }
+
+        // val uVar = variable(u)
+        // val vVar = variable(v)
+        // if ((uVar > vVar) || (uVar == vVar && u.index > v.index)) {
+        //     return xorCache.getOrCompute(Pair(v, u)) {
+        //         _apply(v, u, ::applyXor)
+        //     }
+        // }
+
+        return xorCache.getOrCompute(Pair(u, v)) {
+            _apply(u, v, ::applyXor)
+        }
+    }
+
     private fun _descendants(node: Ref, visited: MutableSet<Int>) {
         val i = node.index.absoluteValue
         if (visited.add(i)) {
@@ -357,10 +552,16 @@ class BDD(
         }
     }
 
-    fun descendants(node: Ref): Set<Int> {
+    fun descendants(nodes: Iterable<Ref>): Set<Int> {
         val visited = mutableSetOf(1)
-        _descendants(node, visited)
+        for (node in nodes) {
+            _descendants(node, visited)
+        }
         return visited
+    }
+
+    fun descendants(node: Ref): Set<Int> {
+        return descendants(listOf(node))
     }
 
     private fun _exists(node: Ref, j: Int, vars: Set<Int>, cache: Cache<Ref, Ref>): Ref {
@@ -491,7 +692,7 @@ class BDD(
     fun oneSat(node: Ref, n: Int): List<Boolean?> {
         // n - number of variables
         val model = MutableList<Boolean?>(n) { null }
-        return if (_oneSat(node, node.negated, model)) {
+        return if (_oneSat(node, !node.negated, model)) {
             model
         } else {
             emptyList()

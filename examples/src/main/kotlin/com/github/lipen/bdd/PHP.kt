@@ -166,7 +166,13 @@ fun php(pigeons: Int, holes: Int = pigeons - 1) {
     println("bdd.size = ${bdd.size}")
     println("bdd.realSize = ${bdd.realSize}")
     println("bdd.cacheHits = ${bdd.cacheHits}")
+    for ((name, hits) in bdd.namedCacheHits) {
+        println("  - $name: $hits")
+    }
     println("bdd.cacheMisses = ${bdd.cacheMisses}")
+    for ((name, misses) in bdd.namedCacheMisses) {
+        println("  - $name: $misses")
+    }
     println("bdd.maxChain() = ${bdd.maxChain()}")
     println("-".repeat(42))
 
