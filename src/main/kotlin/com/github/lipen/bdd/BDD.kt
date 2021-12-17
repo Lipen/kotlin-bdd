@@ -435,6 +435,12 @@ class BDD(
         vars: Set<Int>,
         cache: Cache<Triple<Ref, Ref, Set<Int>>, Ref>,
     ): Ref {
+        if (isZero(f) || isZero(g)) {
+            return zero
+        }
+        if (isOne(f) && isOne(g)) {
+            return one
+        }
         if (isOne(f)) {
             return exists(g, vars)
         }
@@ -461,12 +467,6 @@ class BDD(
     }
 
     fun relProduct(f: Ref, g: Ref, vars: Set<Int>): Ref {
-        if (isZero(f) || isZero(g)) {
-            return zero
-        }
-        if (isOne(f) && isOne(g)) {
-            return one
-        }
         val relProductCache: Cache<Triple<Ref, Ref, Set<Int>>, Ref> = Cache("RELPROD($vars)")
         return _relProduct(f, g, vars, relProductCache)
     }
