@@ -26,6 +26,15 @@ internal class Storage(capacity: Int) {
         // return (1..lastIndex).firstOrNull { !dataOccupied[it] } ?: ++lastIndex
     }
 
+    internal fun alloc(index: Int) {
+        require(index > 0)
+        if (index > lastIndex) {
+            lastIndex = index
+        }
+        realSize++
+        dataOccupied[index] = true
+    }
+
     fun add(v: Int, low: Int, high: Int, next: Int = 0): Int {
         require(v > 0)
         require(low != 0)
@@ -38,15 +47,6 @@ internal class Storage(capacity: Int) {
         dataHigh[index] = high
         dataNext[index] = next
         return index
-    }
-
-    fun alloc(index: Int) {
-        require(index > 0)
-        if (index > lastIndex) {
-            lastIndex = index
-        }
-        realSize++
-        dataOccupied[index] = true
     }
 
     fun drop(index: Int) {
