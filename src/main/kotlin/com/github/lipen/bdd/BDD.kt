@@ -532,7 +532,7 @@ fun main() {
     println("-".repeat(42))
     println("BDD nodes (${bdd.realSize}):")
     for (i in 1..bdd.size) {
-        if (bdd.storage.dataOccupied[i]) {
+        if (bdd.storage.isOccupied(i)) {
             if (i > 1) {
                 println("$i (v=${bdd.variable(i)}, low=${bdd.low(i)}, high=${bdd.high(i)})")
             } else {
@@ -548,7 +548,7 @@ fun main() {
     println("-".repeat(42))
     println("BDD nodes (${bdd.realSize}) after GC:")
     for (i in 1..bdd.size) {
-        if (bdd.storage.dataOccupied[i]) {
+        if (bdd.storage.isOccupied(i)) {
             if (i > 1) {
                 println("$i (v=${bdd.variable(i)}, low=${bdd.low(i)}, high=${bdd.high(i)})")
             } else {

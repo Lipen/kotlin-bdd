@@ -1,17 +1,19 @@
 package com.github.lipen.bdd
 
 internal class Storage(capacity: Int) {
-    // internal val dataOccupied = java.util.BitSet(capacity)
-    internal val dataOccupied = BooleanArray(capacity)
-    internal val dataVar = IntArray(capacity)
-    internal val dataLow = IntArray(capacity)
-    internal val dataHigh = IntArray(capacity)
-    internal val dataNext = IntArray(capacity)
+    // private val dataOccupied = java.util.BitSet(capacity)
+    private val dataOccupied = BooleanArray(capacity)
+    private val dataVar = IntArray(capacity)
+    private val dataLow = IntArray(capacity)
+    private val dataHigh = IntArray(capacity)
+    private val dataNext = IntArray(capacity)
 
     var lastIndex: Int = 0
         private set
     var realSize: Int = 0
         private set
+
+    fun isOccupied(index: Int): Boolean = dataOccupied[index]
 
     // Invariant: variable(0) = low(0) = high(0) = next(0) = 0
     fun variable(index: Int): Int = dataVar[index]
