@@ -39,13 +39,12 @@ value class Ref(val index: Int) : Comparable<Ref> {
     }
 
     override fun toString(): String {
-        // return "@$index"
         return "${if (negated) "~" else ""}@${index.absoluteValue}"
     }
 }
 
 class BDD(
-    val storageCapacity: Int = 1 shl 20, // 24 ~ 320MB, 25 ~ 640MB, 26 ~ 1G
+    val storageCapacity: Int = 1 shl 20,
     val bucketsCapacity: Int = storageCapacity,
 ) {
     private val buckets = IntArray(bucketsCapacity)
