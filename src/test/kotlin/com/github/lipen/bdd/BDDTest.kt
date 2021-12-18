@@ -27,16 +27,22 @@ internal class BDDTest {
 
     @Test
     fun `BDD for clause`() {
-        val c = bdd.clause(1, 2, 3)
-        assertEquals(4, c.index, "c.index")
-        assertEquals(4, bdd.size, "bdd.size")
+        val c = bdd.clause(-1, 2, -3)
+        val x1 = bdd.mkVar(1)
+        val x2 = bdd.mkVar(2)
+        val x3 = bdd.mkVar(3)
+        val c2 = bdd.applyOr(bdd.applyOr(-x1, x2), -x3)
+        assertEquals(c2, c)
     }
 
     @Test
     fun `BDD for cube`() {
-        val c = bdd.cube(1, 2, 3)
-        assertEquals(4, c.index, "c.index")
-        assertEquals(4, bdd.size, "bdd.size")
+        val c = bdd.cube(-1, 2, -3)
+        val x1 = bdd.mkVar(1)
+        val x2 = bdd.mkVar(2)
+        val x3 = bdd.mkVar(3)
+        val c2 = bdd.applyAnd(bdd.applyAnd(-x1, x2), -x3)
+        assertEquals(c2, c)
     }
 
     @Test
