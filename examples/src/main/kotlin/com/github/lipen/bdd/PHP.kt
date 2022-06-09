@@ -45,10 +45,12 @@ fun php(pigeons: Int, holes: Int = pigeons - 1) {
     println("Running PHP(p = $pigeons, h = $holes})...")
 
     val timeStart = PerformanceCounter.reference
-    val bdd = BDD(storageCapacity = when {
-        pigeons > 25 -> 1 shl 21
-        else -> 1 shl 20
-    })
+    val bdd = BDD(
+        storageCapacity = when {
+            pigeons > 25 -> 1 shl 21
+            else -> 1 shl 20
+        }
+    )
     var f = bdd.one
     var totaltime = 0.0
 
