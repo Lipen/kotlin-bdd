@@ -11,4 +11,6 @@ logs/
 *.log
 
 # Other
+/data/
+/old/
 *.txt
