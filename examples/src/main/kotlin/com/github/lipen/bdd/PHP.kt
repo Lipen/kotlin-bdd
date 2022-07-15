@@ -6,37 +6,37 @@ import okio.buffer
 import okio.sink
 import java.io.File
 
-private fun generatePhpClausesA(pigeons: Int, holes: Int): Sequence<List<Int>> = sequence {
+internal fun generatePhpClausesA(pigeons: Int, holes: Int): Sequence<List<Int>> = sequence {
     fun v(i: Int, j: Int) = (i - 1) * holes + j
 
     // A: p clauses
     for (i in 1..pigeons)
         yield((1..holes).map { j -> v(i, j) })
-}
+}.constrainOnce()
 
-private fun generatePhpClausesBj(pigeons: Int, holes: Int, j: Int): Sequence<List<Int>> = sequence {
+internal fun generatePhpClausesBj(pigeons: Int, holes: Int, j: Int): Sequence<List<Int>> = sequence {
     fun v(i: Int, j: Int) = (i - 1) * holes + j
 
     // B[j] clauses
     for (i in 1..pigeons) //(p-1) * p / 2
         for (k in i + 1..pigeons)
             yield(listOf(-v(i, j), -v(k, j)))
-}
+}.constrainOnce()
 
-private fun generatePhpClausesB(pigeons: Int, holes: Int): Sequence<List<Int>> = sequence {
+internal fun generatePhpClausesB(pigeons: Int, holes: Int): Sequence<List<Int>> = sequence {
     // B clauses
     for (j in 1..holes) //h *
         yieldAll(generatePhpClausesBj(pigeons, holes, j))
-}
+}.constrainOnce()
 
-private fun generatePhpClauses(pigeons: Int, holes: Int): Sequence<List<Int>> = sequence {
+internal fun generatePhpClauses(pigeons: Int, holes: Int): Sequence<List<Int>> = sequence {
     require(pigeons > 0)
     require(holes > 0)
     // A: p clauses
     yieldAll(generatePhpClausesA(pigeons, holes))
     // B clauses
     yieldAll(generatePhpClausesB(pigeons, holes))
-}
+}.constrainOnce()
 
 fun php(pigeons: Int, holes: Int = pigeons - 1) {
     require(pigeons > 0)
