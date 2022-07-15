@@ -78,9 +78,6 @@ class BDD(
     val namedCacheMisses: Map<String, Int>
         get() = caches.associate { it.name to it.misses }
 
-    val andCacheMap = andCache.map
-    val orCacheMap = orCache.map
-
     val one = Ref(1)
     val zero = Ref(-1)
 
