@@ -273,32 +273,12 @@ class BDD(
         // ite(F,F,H) == ite(F,1,H) == F + H
         if (isTerminal(g) || f == g) {
             logger.debug { "applyIte: either g is terminal or f == g" }
-            @Suppress("LiftReturnOrAssignment")
-            // ite(F,1,0) => F
-            if (isZero(h)) {
-                logger.debug { "applyIte: h is 0" }
-                return f
-            }
-            // F + H => ~(~F * ~H)
-            else {
-                logger.debug { "applyIte: h is not 0" }
-                return -applyAnd(-f, -h)
-            }
+            return applyAnd(f, h)
         }
         // ite(F,~F,H) == ite(F,0,H) == ~F * H
         else if (isZero(g) || f == -g) {
             logger.debug { "applyIte: either g is 0 or f == ~g" }
-            @Suppress("LiftReturnOrAssignment")
-            // ite(F,0,1) => ~F
-            if (isOne(h)) {
-                logger.debug { "applyIte: h is 1" }
-                return -f
-            }
-            // ~F * H
-            else {
-                logger.debug { "applyIte: h is not 1" }
-                return applyAnd(f, h)
-            }
+            return applyAnd(-f, h)
         }
 
         // ite(F,G,F) == ite(F,G,0) == F * G
