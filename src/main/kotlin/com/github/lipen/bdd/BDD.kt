@@ -78,11 +78,11 @@ class BDD(
     val namedCacheMisses: Map<String, Int>
         get() = caches.associate { it.name to it.misses }
 
-    val one = Ref(1)
-    val zero = Ref(-1)
+    val one = Ref(1) // terminal 1
+    val zero = Ref(-1) // terminal 0
 
     init {
-        storage.alloc() // allocate the terminal node
+        check(storage.alloc() == 1) // allocate the terminal node
         buckets[0] = 1
     }
 

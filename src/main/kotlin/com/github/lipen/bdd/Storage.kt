@@ -3,16 +3,27 @@ package com.github.lipen.bdd
 import kotlin.math.min
 
 internal class Storage(capacity: Int) {
+    // Note: 0th cell (index=0) is a sentry.
     private val dataOccupied = java.util.BitSet(capacity)
     private val dataVar = IntArray(capacity)
     private val dataLow = IntArray(capacity)
     private val dataHigh = IntArray(capacity)
     private val dataNext = IntArray(capacity)
 
+    /**
+     * Index of the first *possibly* free (non-occupied) cell.
+     */
     private var minFree: Int = 1
 
+    /**
+     * Index of the last occupied cell.
+     */
     var lastIndex: Int = 0
         private set
+
+    /**
+     * Number of occupied cells.
+     */
     var realSize: Int = 0
         private set
 
@@ -24,21 +35,22 @@ internal class Storage(capacity: Int) {
     fun high(index: Int): Int = dataHigh[index]
     fun next(index: Int): Int = dataNext[index]
 
-    private fun getFreeIndex(): Int {
-        return (minFree..lastIndex).firstOrNull { !dataOccupied[it] } ?: ++lastIndex
-    }
-
+    /**
+     * Allocate a new cell, occupy it and return its index.
+     */
     internal fun alloc(): Int {
-        val index = minFree
-        if (index > lastIndex) {
-            lastIndex = index
-        }
+        val index = (minFree..lastIndex).firstOrNull { !dataOccupied[it] } ?: ++lastIndex
         realSize++
         dataOccupied[index] = true
-        minFree = getFreeIndex()
+        minFree = index + 1
         return index
     }
 
+    /**
+     * Add a new node into [Storage].
+     *
+     * Returns an index of allocated cell.
+     */
     fun add(v: Int, low: Int, high: Int, next: Int = 0): Int {
         require(v > 0)
         require(low != 0)
@@ -51,6 +63,9 @@ internal class Storage(capacity: Int) {
         return index
     }
 
+    /**
+     * Deallocate a cell with a given [index].
+     */
     fun drop(index: Int) {
         require(index > 0)
         realSize--
