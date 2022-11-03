@@ -560,6 +560,47 @@ class BDD(
         return descendants(listOf(node))
     }
 
+    private fun _substitute(f: Ref, v: Int, g: Ref, cache: Cache<Pair<Ref, Ref>, Ref>): Ref {
+        if (isTerminal(f)) {
+            return f
+        }
+
+        val i = variable(f)
+        check(i > 0) { "Variable for f=$f is $i" }
+        if (v < i) {
+            return f
+        }
+
+        return cache.getOrCompute(Pair(f, g)) {
+            if (i == v) {
+                val low = low(f)
+                val high = high(f)
+
+                applyIte(g, high, low).let { if (f.negated) -it else it }
+            } else {
+                check(v > i)
+
+                // val j = variable(g)
+                val j = if (variable(g) > 0) variable(g) else variable(f)
+                check(j > 0) { "Variable for g=$g is $j" }
+                val m = min(i, j)
+                check(m > 0)
+
+                val (f0, f1) = topCofactors(f, m)
+                val (g0, g1) = topCofactors(g, m)
+                val h0 = _substitute(f0, v, g0, cache)
+                val h1 = _substitute(f1, v, g1, cache)
+
+                mkNode(v = m, low = h0, high = h1)
+            }
+        }
+    }
+
+    fun substitute(f: Ref, v: Int, g: Ref): Ref {
+        val cache = Cache<Pair<Ref, Ref>, Ref>("SUBSTITUTE($v)")
+        return _substitute(f, v, g, cache)
+    }
+
     private fun _exists(node: Ref, j: Int, vars: Set<Int>, cache: Cache<Ref, Ref>): Ref {
         logger.debug { "_exists($node, $vars) ($node = ${getTriplet(node)})" }
         if (isTerminal(node)) {
