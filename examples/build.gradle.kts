@@ -15,10 +15,10 @@ dependencies {
     implementation(kotlin("stdlib-jdk8"))
 
     implementation(rootProject)
-    implementation("io.github.microutils:kotlin-logging:2.1.15")
-    runtimeOnly("ch.qos.logback:logback-classic:1.2.7")
-    implementation("com.soywiz.korlibs.klock:klock-jvm:2.4.8")
-    implementation("com.squareup.okio:okio:3.0.0")
+    implementation("io.github.microutils:kotlin-logging:3.0.4")
+    runtimeOnly("ch.qos.logback:logback-classic:1.4.4")
+    implementation("com.soywiz.korlibs.klock:klock-jvm:3.3.1")
+    implementation("com.squareup.okio:okio:3.2.0")
 }
 
 tasks.withType<KotlinCompile> {

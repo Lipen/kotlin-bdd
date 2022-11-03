@@ -3,11 +3,11 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 group = "com.github.Lipen"
 
 plugins {
-    kotlin("jvm") version "1.6.0"
+    kotlin("jvm") version "1.7.20"
     application
-    id("com.github.johnrengelman.shadow") version "7.1.0" apply false
+    id("com.github.johnrengelman.shadow") version "7.1.2" apply false
     id("fr.brouillard.oss.gradle.jgitver") version "0.9.1"
-    id("com.github.ben-manes.versions") version "0.39.0"
+    id("com.github.ben-manes.versions") version "0.43.0"
     `maven-publish`
 }
 
@@ -19,11 +19,11 @@ dependencies {
     implementation(platform(kotlin("bom")))
     implementation(kotlin("stdlib-jdk8"))
 
-    implementation("io.github.microutils:kotlin-logging:2.1.15")
-    runtimeOnly("ch.qos.logback:logback-classic:1.2.7")
+    implementation("io.github.microutils:kotlin-logging:3.0.4")
+    runtimeOnly("ch.qos.logback:logback-classic:1.4.4")
 
     testImplementation(kotlin("test"))
-    testImplementation("com.soywiz.korlibs.klock:klock-jvm:2.4.8")
+    testImplementation("com.soywiz.korlibs.klock:klock-jvm:3.3.1")
 }
 
 tasks.test {
