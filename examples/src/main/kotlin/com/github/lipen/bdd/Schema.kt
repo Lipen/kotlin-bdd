@@ -95,6 +95,6 @@ fun schema() {
     println("Done in %.2fs (totaltime=%.2f)".format(totalTime.seconds, totaltime))
 }
 
-fun main(args: Array<String>) {
+fun main() {
     schema()
 }
