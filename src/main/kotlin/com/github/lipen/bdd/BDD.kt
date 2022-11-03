@@ -82,7 +82,7 @@ class BDD(
     val zero = Ref(-1)
 
     init {
-        storage.alloc(1) // terminal node
+        storage.alloc() // allocate the terminal node
         buckets[0] = 1
     }
 

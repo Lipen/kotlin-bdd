@@ -1,11 +1,15 @@
 package com.github.lipen.bdd
 
+import kotlin.math.min
+
 internal class Storage(capacity: Int) {
     private val dataOccupied = java.util.BitSet(capacity)
     private val dataVar = IntArray(capacity)
     private val dataLow = IntArray(capacity)
     private val dataHigh = IntArray(capacity)
     private val dataNext = IntArray(capacity)
+
+    private var minFree: Int = 1
 
     var lastIndex: Int = 0
         private set
@@ -21,26 +25,25 @@ internal class Storage(capacity: Int) {
     fun next(index: Int): Int = dataNext[index]
 
     private fun getFreeIndex(): Int {
-        return ++lastIndex
-        // return (1..lastIndex).firstOrNull { !dataOccupied[it] } ?: ++lastIndex
+        return (minFree..lastIndex).firstOrNull { !dataOccupied[it] } ?: ++lastIndex
     }
 
-    internal fun alloc(index: Int) {
-        require(index > 0)
+    internal fun alloc(): Int {
+        val index = minFree
         if (index > lastIndex) {
             lastIndex = index
         }
         realSize++
         dataOccupied[index] = true
+        minFree = getFreeIndex()
+        return index
     }
 
     fun add(v: Int, low: Int, high: Int, next: Int = 0): Int {
         require(v > 0)
         require(low != 0)
         require(high != 0)
-        val index = getFreeIndex()
-        realSize++
-        dataOccupied[index] = true
+        val index = alloc()
         dataVar[index] = v
         dataLow[index] = low
         dataHigh[index] = high
@@ -52,6 +55,7 @@ internal class Storage(capacity: Int) {
         require(index > 0)
         realSize--
         dataOccupied[index] = false
+        minFree = min(minFree, index)
     }
 
     fun setNext(index: Int, next: Int) {
