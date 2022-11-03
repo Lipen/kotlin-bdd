@@ -289,7 +289,7 @@ class BDD(
         // ite(F,G,~F) == ite(F,G,1) == ~F + G
         else if (isOne(h) || f == -h) {
             logger.debug { "applyIte: either h is 1 or f == ~h" }
-            return applyAnd(f, -g)
+            return applyOr(-f, g)
         }
 
         // ite(F,G,G) => G
