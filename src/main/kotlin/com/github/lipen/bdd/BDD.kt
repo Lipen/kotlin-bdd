@@ -541,6 +541,8 @@ class BDD(
     }
 
     private fun _substitute(f: Ref, v: Int, g: Ref, cache: Cache<Pair<Ref, Ref>, Ref>): Ref {
+        logger.debug { "substitute(f = $f, v = $v, g = $g)" }
+
         if (isTerminal(f)) {
             return f
         }
@@ -583,9 +585,11 @@ class BDD(
 
     private fun _exists(node: Ref, j: Int, vars: Set<Int>, cache: Cache<Ref, Ref>): Ref {
         logger.debug { "_exists($node, $vars) ($node = ${getTriplet(node)})" }
+
         if (isTerminal(node)) {
             return node
         }
+
         return cache.getOrCompute(node) {
             val i = node.index.absoluteValue
             val v = variable(i)
