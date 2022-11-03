@@ -271,8 +271,8 @@ class BDD(
         check(!isTerminal(f))
 
         // ite(F,F,H) == ite(F,1,H) == F + H
-        if (isTerminal(g) || f == g) {
-            logger.debug { "applyIte: either g is terminal or f == g" }
+        if (isOne(g) || f == g) {
+            logger.debug { "applyIte: either g is 1 or f == g" }
             return applyAnd(f, h)
         }
         // ite(F,~F,H) == ite(F,0,H) == ~F * H
