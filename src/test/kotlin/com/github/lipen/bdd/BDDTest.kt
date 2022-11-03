@@ -46,6 +46,39 @@ internal class BDDTest {
     }
 
     @Test
+    fun substitution0() {
+        val f = -bdd.mkVar(1)
+        val f0 = bdd.substitute(f, 1, bdd.zero)
+        assertEquals(bdd.one, f0)
+        val f1 = bdd.substitute(f, 1, bdd.one)
+        assertEquals(bdd.zero, f1)
+    }
+
+    @Test
+    fun substitution1() {
+        val x1 = bdd.mkVar(1)
+        val x2 = bdd.mkVar(2)
+        val f = bdd.applyOr(-x1, -x2)
+        // c1 == -(x3 /\ x4 /\ x5) \/ -x2
+        val c1 = bdd.substitute(f, 1, bdd.cube(3, 4, 5))
+        // c2 == -x2 \/ -x3 \/ -x4 \/ -x5
+        val c2 = bdd.clause(-2, -3, -4, -5)
+        assertEquals(c2, c1)
+    }
+
+    @Test
+    fun substitution2() {
+        val x1 = bdd.mkVar(1)
+        val x2 = bdd.mkVar(2)
+        val f = bdd.applyOr(-x1, x2)
+        // c1 == -(x3 /\ x4 /\ x5) \/ x2
+        val c1 = bdd.substitute(f, 1, bdd.cube(3, 4, 5))
+        // c2 == x2 \/ -x3 \/ -x4 \/ -x5
+        val c2 = bdd.clause(2, -3, -4, -5)
+        assertEquals(c2, c1)
+    }
+
+    @Test
     fun `existential quantification`() {
         val c1 = bdd.cube(-1, -2, 3)
         val c2 = bdd.cube(1, -3)
