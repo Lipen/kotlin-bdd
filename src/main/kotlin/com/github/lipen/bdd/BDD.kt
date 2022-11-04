@@ -2,6 +2,7 @@ package com.github.lipen.bdd
 
 import kotlin.math.absoluteValue
 import kotlin.math.min
+import kotlin.math.pow
 
 private val logger = mu.KotlinLogging.logger {}
 
@@ -547,6 +548,32 @@ class BDD(
         return sizeCache.getOrCompute(node) {
             descendants(node).size
         }
+    }
+
+    private fun _count(node: Ref, max: Long, cache: Cache<Ref, Long>): Long {
+        if (isOne(node)) {
+            return max
+        } else if (isZero(node)) {
+            return 0
+        }
+
+        return cache.getOrCompute(node) {
+            val low = low(node).let { if (node.negated) -it else it }
+            val high = high(node).let { if (node.negated) -it else it }
+
+            val countLow = _count(low, max, cache)
+            val countHigh = _count(high, max, cache)
+
+            (countLow + countHigh) / 2
+        }
+    }
+
+    fun count(node: Ref, nvars: Int): Long {
+        val cache = Cache<Ref, Long>("COUNT")
+        // TODO: determine `nvars` automatically
+        // TODO: calculate `max` correctly
+        val max = 2L.toDouble().pow(nvars).toLong()
+        return _count(node, max, cache)
     }
 
     private fun _substitute(f: Ref, v: Int, g: Ref, cache: Cache<Pair<Ref, Ref>, Ref>): Ref {

@@ -90,4 +90,16 @@ internal class BDDTest {
         assertEquals(h, g, "∃x₃.((~x₁∧~x₂∧~x₃) ∨ (x₁∧~x₃) ∨ (x₁∧x₂)) must be equal to (x₁∨~x₂)")
         assertEquals(10, bdd.size, "bdd.size")
     }
+
+    @Test
+    fun `count for cube`() {
+        val f = bdd.cube(1,2,3)
+        assertEquals(1, bdd.count(f, 3))
+    }
+
+    @Test
+    fun `count for clause`() {
+        val f = bdd.clause(1,2,3)
+        assertEquals(7, bdd.count(f, 3))
+    }
 }
