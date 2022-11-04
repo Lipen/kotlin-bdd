@@ -68,7 +68,8 @@ class BDD(
     private val andCache = Cache<Pair<Ref, Ref>, Ref>("AND")
     private val orCache = Cache<Pair<Ref, Ref>, Ref>("OR")
     private val xorCache = Cache<Pair<Ref, Ref>, Ref>("XOR")
-    private val caches = arrayOf(iteCache, andCache, orCache, xorCache)
+    private val sizeCache = Cache<Ref, Int>("SIZE")
+    private val caches = arrayOf(iteCache, andCache, orCache, xorCache, sizeCache)
     val cacheHits: Int
         get() = caches.sumOf { it.hits }
     val cacheMisses: Int
@@ -540,6 +541,12 @@ class BDD(
 
     fun descendants(node: Ref): Set<Int> {
         return descendants(listOf(node))
+    }
+
+    fun size(node: Ref): Int {
+        return sizeCache.getOrCompute(node) {
+            descendants(node).size
+        }
     }
 
     private fun _substitute(f: Ref, v: Int, g: Ref, cache: Cache<Pair<Ref, Ref>, Ref>): Ref {
