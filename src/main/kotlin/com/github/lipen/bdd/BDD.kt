@@ -520,19 +520,21 @@ class BDD(
         }
     }
 
-    private fun _descendants(node: Ref, visited: MutableSet<Int>) {
-        val i = node.index.absoluteValue
-        if (visited.add(i)) {
-            _descendants(low(i), visited)
-            _descendants(high(i), visited)
-        }
-    }
-
     fun descendants(nodes: Iterable<Ref>): Set<Int> {
         val visited = mutableSetOf(1)
-        for (node in nodes) {
-            _descendants(node, visited)
+
+        fun visit(node: Ref) {
+            val i = node.index.absoluteValue
+            if (visited.add(i)) {
+                visit(low(i))
+                visit(high(i))
+            }
         }
+
+        for (node in nodes) {
+            visit(node)
+        }
+
         return visited
     }
 
