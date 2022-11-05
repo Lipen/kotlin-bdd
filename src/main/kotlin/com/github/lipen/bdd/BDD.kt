@@ -51,6 +51,14 @@ class BDD(
     private val buckets = IntArray(bucketsCapacity)
     internal val storage = Storage(storageCapacity)
 
+    val one = Ref(1) // terminal 1
+    val zero = Ref(-1) // terminal 0
+
+    init {
+        check(storage.alloc() == 1) // allocate the terminal node
+        buckets[0] = 1
+    }
+
     val size: Int get() = storage.lastIndex
     val realSize: Int get() = storage.realSize
 
@@ -79,14 +87,6 @@ class BDD(
         get() = caches.associate { it.name to it.hits }
     val namedCacheMisses: Map<String, Int>
         get() = caches.associate { it.name to it.misses }
-
-    val one = Ref(1) // terminal 1
-    val zero = Ref(-1) // terminal 0
-
-    init {
-        check(storage.alloc() == 1) // allocate the terminal node
-        buckets[0] = 1
-    }
 
     fun variable(i: Int): Int = storage.variable(i)
     fun variable(node: Ref): Int = variable(node.index.absoluteValue)
