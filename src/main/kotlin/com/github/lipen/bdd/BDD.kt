@@ -139,7 +139,7 @@ class BDD(
         var index = buckets[bucketIndex]
 
         if (index == 0) {
-            // Create new node
+            // Create new node and put it into the bucket
             return addNode(v, low, high).also { buckets[bucketIndex] = it.index }
                 .also {
                     logger.debug { "mk: created new node $it" }
