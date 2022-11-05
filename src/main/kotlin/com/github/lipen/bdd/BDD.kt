@@ -141,7 +141,9 @@ class BDD(
         if (index == 0) {
             // Create new node
             return addNode(v, low, high).also { buckets[bucketIndex] = it.index }
-                .also { logger.debug { "mk: created new node $it" } }
+                .also {
+                    logger.debug { "mk: created new node $it" }
+                }
         }
 
         while (true) {
@@ -158,7 +160,9 @@ class BDD(
             if (next == 0) {
                 // Create new node and add it to the bucket
                 return addNode(v, low, high).also { storage.setNext(index, it.index) }
-                    .also { logger.debug { "mk: created new node $it after $index" } }
+                    .also {
+                        logger.debug { "mk: created new node $it after $index" }
+                    }
             } else {
                 // Go to the next node in the bucket
                 logger.debug { "mk: iterating over the bucket to $next" }
@@ -759,8 +763,6 @@ class BDD(
 
 fun main() {
     val bdd = BDD()
-    val one = bdd.one
-    val zero = bdd.zero
 
     val x1 = bdd.mkVar(1)
     val x2 = bdd.mkVar(2)
