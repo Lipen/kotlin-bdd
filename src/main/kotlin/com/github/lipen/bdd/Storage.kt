@@ -51,7 +51,7 @@ internal class Storage(capacity: Int) {
      *
      * Returns an index of allocated cell.
      */
-    fun add(v: Int, low: Int, high: Int, next: Int = 0): Int {
+    fun add(v: Int, low: Int, high: Int): Int {
         require(v > 0)
         require(low != 0)
         require(high != 0)
@@ -59,7 +59,7 @@ internal class Storage(capacity: Int) {
         dataVar[index] = v
         dataLow[index] = low
         dataHigh[index] = high
-        dataNext[index] = next
+        dataNext[index] = 0
         return index
     }
 
