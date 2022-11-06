@@ -770,9 +770,68 @@ class BDD(
         val high = high(i).let { if (node.negated) -it else it }
         return "(x$v, ${toBracketString(high)}, ${toBracketString(low)})"
     }
+
+    fun toGraphVizLines(roots: Iterable<Ref>): Sequence<String> {
+        @Suppress("NAME_SHADOWING")
+        val roots = roots.toSet()
+        val allNodeIds = descendants(roots).sorted()
+
+        return sequence {
+            yield("graph {")
+
+            yield("  // Nodes")
+            yield("  { node [shape=circle, fixedsize=true];")
+            for (id in allNodeIds) {
+                check(id > 0)
+                if (id == 1) continue
+
+                val label = "\\N:x${variable(id)}"
+                yield("  $id [label=\"$label\"];")
+            }
+            yield("  }")
+
+            yield("")
+            yield("  // Terminal")
+            yield("  { rank=sink; 1 [shape=square, fixedsize=true]; }")
+
+            yield("")
+            yield("  // Roots")
+            yield("  { rank=source; node[shape=square, fixedsize=true, style=rounded];")
+            for (ref in roots) {
+                yield("  \"$ref\";")
+            }
+            yield("  }")
+
+            yield("")
+            yield("  // Root-edges")
+            yield("  { edge[style=solid];")
+            for (ref in roots) {
+                val id = ref.index
+                yield("  \"$ref\" -- ${id.absoluteValue};")
+            }
+            yield("  }")
+
+            yield("")
+            yield("  // Edges")
+            for (id in allNodeIds) {
+                if (id == 1) continue
+                val high = high(id)
+                check(!high.negated)
+                yield("  $id -- ${high.index} [style=solid, tailport=sw];")
+                val low = low(id)
+                if (low.negated) {
+                    yield("  $id -- ${-low.index} [style=dashed, tailport=se, label=-1];")
+                } else {
+                    yield("  $id -- ${low.index} [style=dashed, tailport=se];")
+                }
+            }
+
+            yield("}")
+        }
+    }
 }
 
-fun main() {
+fun testSuite1() {
     val bdd = BDD()
 
     val x1 = bdd.mkVar(1)
@@ -800,6 +859,11 @@ fun main() {
     println("e = $e = ${bdd.getTriplet(e)}")
     println("g = $g = ${bdd.getTriplet(g)}")
     println("bdd.size = ${bdd.size}, bdd.realSize() = ${bdd.realSize}")
+
+    println("GraphViz for [f,e,g]:")
+    for (line in bdd.toGraphVizLines(listOf(f, e, g))) {
+        println(line)
+    }
 
     println("-".repeat(42))
     println("BDD nodes (${bdd.realSize}):")
@@ -836,4 +900,31 @@ fun main() {
     println("bdd.cacheMisses = ${bdd.cacheMisses}")
     println("bdd.maxChain() = ${bdd.maxChain()}")
     // println("bdd.chains() = ${bdd.chains()}")
+    println("-".repeat(42))
+}
+
+fun testSuite2() {
+    val bdd = BDD()
+
+    val c1 = bdd.clause(1, 3, 5, 6)
+    val c2 = bdd.clause(-2, 1, 3, -6)
+    val c3 = bdd.clause(-3, 4, 5)
+    val f = bdd.applyAnd(bdd.applyAnd(c1, c2), c3)
+
+    println("-".repeat(42))
+    println("f = $f = ${bdd.toBracketString(f)}")
+    println("GraphViz for [f]:")
+    for (line in bdd.toGraphVizLines(listOf(f))) {
+        println(line)
+    }
+
+    println("-".repeat(42))
+    println("bdd.size = ${bdd.size}")
+    println("bdd.realSize = ${bdd.realSize}")
+    println("-".repeat(42))
+}
+
+fun main() {
+    testSuite1()
+    testSuite2()
 }
