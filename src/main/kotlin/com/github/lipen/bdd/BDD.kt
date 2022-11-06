@@ -756,6 +756,20 @@ class BDD(
         val ok = _oneSat(node, !node.negated, model)
         return if (ok) model else emptyList()
     }
+
+    fun toBracketString(node: Ref): String {
+        if (isZero(node)) {
+            return "(0)"
+        } else if (isOne(node)) {
+            return "(1)"
+        }
+
+        val i = node.index.absoluteValue
+        val v = variable(i)
+        val low = low(i).let { if (node.negated) -it else it }
+        val high = high(i).let { if (node.negated) -it else it }
+        return "(x$v, ${toBracketString(high)}, ${toBracketString(low)})"
+    }
 }
 
 fun main() {
@@ -777,6 +791,7 @@ fun main() {
     val c3 = bdd.applyAnd(x1, x2)
     println("-".repeat(42))
     val f = bdd.applyOr(bdd.applyOr(c1, c2), c3)
+    println("f = $f = ${bdd.toBracketString(f)}")
     println("-".repeat(42))
     val e = bdd.exists(f, 3)
 
