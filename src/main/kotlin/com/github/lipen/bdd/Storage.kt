@@ -49,7 +49,7 @@ internal class Storage(capacity: Int) {
     /**
      * Add a new node into [Storage].
      *
-     * Returns an index of allocated cell.
+     * Returns the index of the allocated cell.
      */
     fun add(v: Int, low: Int, high: Int): Int {
         require(v > 0)
@@ -75,6 +75,7 @@ internal class Storage(capacity: Int) {
 
     fun setNext(index: Int, next: Int) {
         require(index > 0)
+        require(next > 0)
         dataNext[index] = next
     }
 }

@@ -16,7 +16,7 @@ fun BDD.getTriplet(index: Int): Triplet? {
     if (i == 1) {
         return Triplet(0, 0, 0)
     }
-    return if (storage.isOccupied(i)) {
+    return if (isOccupied(i)) {
         Triplet(v = variable(i), low = low(i).index, high = high(i).index)
     } else {
         null

@@ -14,14 +14,14 @@ internal class BDDTest {
     @Test
     fun `BDD for variable`() {
         val x = bdd.mkVar(2)
-        assertEquals(2, x.index, "x.index")
+        assertEquals(Ref(2), x, "x")
         assertEquals(2, bdd.size, "bdd.size")
     }
 
     @Test
     fun `BDD for negated variable`() {
         val x = bdd.mkVar(-2)
-        assertEquals(-2, x.index, "x.index")
+        assertEquals(Ref(-2), x, "x")
         assertEquals(2, bdd.size, "bdd.size")
     }
 
@@ -93,13 +93,13 @@ internal class BDDTest {
 
     @Test
     fun `count for cube`() {
-        val f = bdd.cube(1,2,3)
+        val f = bdd.cube(1, 2, 3)
         assertEquals(1, bdd.count(f, 3))
     }
 
     @Test
     fun `count for clause`() {
-        val f = bdd.clause(1,2,3)
+        val f = bdd.clause(1, 2, 3)
         assertEquals(7, bdd.count(f, 3))
     }
 }

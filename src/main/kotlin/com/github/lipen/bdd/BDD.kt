@@ -6,50 +6,12 @@ import kotlin.math.pow
 
 private val logger = mu.KotlinLogging.logger {}
 
-/**
- * [Cantor pairing function](https://en.wikipedia.org/wiki/Pairing_function#Cantor_pairing_function)
- */
-private fun hash2(a: Int, b: Int): Int {
-    require(a >= 0)
-    require(b >= 0)
-    return (a + 1) * (a + b + 1) / 2 + a
-}
-
-private fun hash3(a: Int, b: Int, c: Int): Int {
-    require(a >= 0)
-    require(b >= 0)
-    require(c >= 0)
-    return hash2(hash2(a, b).absoluteValue, c).absoluteValue
-}
-
-@JvmInline
-value class Ref(val index: Int) : Comparable<Ref> {
-    val negated: Boolean
-        get() = index < 0
-
-    init {
-        require(index != 0)
-    }
-
-    operator fun unaryMinus(): Ref {
-        return Ref(-index)
-    }
-
-    override fun compareTo(other: Ref): Int {
-        return index.compareTo(other.index)
-    }
-
-    override fun toString(): String {
-        return "${if (negated) "~" else ""}@${index.absoluteValue}"
-    }
-}
-
 class BDD(
     val storageCapacity: Int = 1 shl 20,
     val bucketsCapacity: Int = storageCapacity,
 ) {
     private val buckets = IntArray(bucketsCapacity)
-    internal val storage = Storage(storageCapacity)
+    private val storage = Storage(storageCapacity)
 
     val one = Ref(1) // terminal 1
     val zero = Ref(-1) // terminal 0
@@ -88,6 +50,8 @@ class BDD(
     val namedCacheMisses: Map<String, Int>
         get() = caches.associate { it.name to it.misses }
 
+    internal fun isOccupied(i: Int): Boolean = storage.isOccupied(i)
+
     fun variable(i: Int): Int = storage.variable(i)
     fun variable(node: Ref): Int = variable(node.index.absoluteValue)
 
@@ -109,10 +73,10 @@ class BDD(
         return Ref(index)
     }
 
+    private val bitmask = bucketsCapacity - 1
+
     private fun lookup(v: Int, low: Ref, high: Ref): Int {
-        val bitmask = bucketsCapacity - 1
         return hash3(v, low.index.absoluteValue, high.index.absoluteValue) and bitmask
-        // return hash3(v, low.absoluteValue, high.absoluteValue).mod(capacity2)
     }
 
     fun mkNode(v: Int, low: Ref, high: Ref): Ref {
@@ -140,10 +104,10 @@ class BDD(
 
         if (index == 0) {
             // Create new node and put it into the bucket
-            return addNode(v, low, high).also { buckets[bucketIndex] = it.index }
-                .also {
-                    logger.debug { "mk: created new node $it" }
-                }
+            val node = addNode(v, low, high)
+            buckets[bucketIndex] = node.index
+            logger.debug { "mk: created new node $node" }
+            return node
         }
 
         while (true) {
@@ -151,18 +115,19 @@ class BDD(
 
             if (variable(index) == v && low(index) == low && high(index) == high) {
                 // The node already exists
-                logger.debug { "mk: node $index already exists" }
-                return Ref(index)
+                val node = Ref(index)
+                logger.debug { "mk: node $node already exists" }
+                return node
             }
 
             val next = next(index)
 
             if (next == 0) {
-                // Create new node and add it to the bucket
-                return addNode(v, low, high).also { storage.setNext(index, it.index) }
-                    .also {
-                        logger.debug { "mk: created new node $it after $index" }
-                    }
+                // Create new node and append it to the bucket
+                val node = addNode(v, low, high)
+                storage.setNext(index, node.index)
+                logger.debug { "mk: created new node $node after $index" }
+                return node
             } else {
                 // Go to the next node in the bucket
                 logger.debug { "mk: iterating over the bucket to $next" }
@@ -230,17 +195,16 @@ class BDD(
 
     fun topCofactors(node: Ref, v: Int): Pair<Ref, Ref> {
         require(v > 0)
-        return when {
-            isTerminal(node) -> Pair(node, node)
-            v < variable(node) -> Pair(node, node)
-            else -> {
-                check(v == variable(node))
-                if (node.negated) {
-                    Pair(-low(node), -high(node))
-                } else {
-                    Pair(low(node), high(node))
-                }
-            }
+
+        if (isTerminal(node) || v < variable(node)) {
+            return Pair(node, node)
+        }
+        check(v == variable(node))
+        val i = node.index.absoluteValue
+        return if (node.negated) {
+            Pair(-low(i), -high(i))
+        } else {
+            Pair(low(i), high(i))
         }
     }
 
@@ -631,10 +595,9 @@ class BDD(
         }
 
         return cache.getOrCompute(node) {
-            val i = node.index.absoluteValue
-            val v = variable(i)
-            val low = low(i).let { if (node.negated) -it else it }
-            val high = high(i).let { if (node.negated) -it else it }
+            val v = variable(node)
+            val low = low(node).let { if (node.negated) -it else it }
+            val high = high(node).let { if (node.negated) -it else it }
 
             var m = j
             val sortedVars = vars.sorted()
@@ -737,14 +700,15 @@ class BDD(
         if (isTerminal(node)) {
             return parity
         }
-        val i = node.index.absoluteValue
-        val v = variable(i)
+        val v = variable(node)
         model[v - 1] = true
-        if (_oneSat(high(i), parity, model)) {
+        val high = high(node)
+        if (_oneSat(high, parity, model)) {
             return true
         }
         model[v - 1] = false
-        if (_oneSat(low(i), parity xor low(i).negated, model)) {
+        val low = low(node)
+        if (_oneSat(low, parity xor low.negated, model)) {
             return true
         }
         return false
@@ -764,10 +728,9 @@ class BDD(
             return "(1)"
         }
 
-        val i = node.index.absoluteValue
-        val v = variable(i)
-        val low = low(i).let { if (node.negated) -it else it }
-        val high = high(i).let { if (node.negated) -it else it }
+        val v = variable(node)
+        val low = low(node).let { if (node.negated) -it else it }
+        val high = high(node).let { if (node.negated) -it else it }
         return "(x$v, ${toBracketString(high)}, ${toBracketString(low)})"
     }
 
@@ -806,8 +769,8 @@ class BDD(
             yield("  // Root-edges")
             yield("  { edge[style=solid];")
             for (ref in roots) {
-                val id = ref.index
-                yield("  \"$ref\" -- ${id.absoluteValue};")
+                val id = ref.index.absoluteValue
+                yield("  \"$ref\" -- $id;")
             }
             yield("  }")
 
@@ -868,7 +831,7 @@ fun testSuite1() {
     println("-".repeat(42))
     println("BDD nodes (${bdd.realSize}):")
     for (i in 1..bdd.size) {
-        if (bdd.storage.isOccupied(i)) {
+        if (bdd.isOccupied(i)) {
             if (i > 1) {
                 println("$i (v=${bdd.variable(i)}, low=${bdd.low(i)}, high=${bdd.high(i)})")
             } else {
@@ -884,7 +847,7 @@ fun testSuite1() {
     println("-".repeat(42))
     println("BDD nodes (${bdd.realSize}) after GC:")
     for (i in 1..bdd.size) {
-        if (bdd.storage.isOccupied(i)) {
+        if (bdd.isOccupied(i)) {
             if (i > 1) {
                 println("$i (v=${bdd.variable(i)}, low=${bdd.low(i)}, high=${bdd.high(i)})")
             } else {
