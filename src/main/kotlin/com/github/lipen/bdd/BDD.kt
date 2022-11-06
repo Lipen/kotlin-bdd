@@ -518,11 +518,11 @@ class BDD(
         }
     }
 
-    private fun _count(node: Ref, max: Long, cache: Cache<Ref, Long>): Long {
+    private fun _count(node: Ref, max: Double, cache: Cache<Ref, Double>): Double {
         if (isOne(node)) {
             return max
         } else if (isZero(node)) {
-            return 0
+            return 0.0
         }
 
         return cache.getOrCompute(node) {
@@ -532,16 +532,16 @@ class BDD(
             val countLow = _count(low, max, cache)
             val countHigh = _count(high, max, cache)
 
-            (countLow + countHigh) / 2
+            (countLow + countHigh) / 2.0
         }
     }
 
     fun count(node: Ref, nvars: Int): Long {
-        val cache = Cache<Ref, Long>("COUNT")
+        val cache = Cache<Ref, Double>("COUNT")
         // TODO: determine `nvars` automatically
         // TODO: calculate `max` correctly
-        val max = 2L.toDouble().pow(nvars).toLong()
-        return _count(node, max, cache)
+        val max = 2L.toDouble().pow(nvars) //.toLong()
+        return _count(node, max, cache).toLong()
     }
 
     private fun _substitute(f: Ref, v: Int, g: Ref, cache: Cache<Pair<Ref, Ref>, Ref>): Ref {
