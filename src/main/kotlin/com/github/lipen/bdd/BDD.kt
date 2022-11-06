@@ -56,7 +56,7 @@ class BDD(
 
     init {
         check(storage.alloc() == 1) // allocate the terminal node
-        buckets[0] = 1
+        buckets[0] = 1 // store the terminal node in the 0th bucket
     }
 
     val size: Int get() = storage.lastIndex
