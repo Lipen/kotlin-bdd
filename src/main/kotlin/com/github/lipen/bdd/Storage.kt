@@ -75,7 +75,7 @@ internal class Storage(capacity: Int) {
 
     fun setNext(index: Int, next: Int) {
         require(index > 0)
-        require(next > 0)
+        require(next >= 0)
         dataNext[index] = next
     }
 }
