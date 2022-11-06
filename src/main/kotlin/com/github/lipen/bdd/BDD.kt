@@ -753,11 +753,8 @@ class BDD(
     fun oneSat(node: Ref, n: Int): List<Boolean?> {
         // n - number of variables
         val model = MutableList<Boolean?>(n) { null }
-        return if (_oneSat(node, !node.negated, model)) {
-            model
-        } else {
-            emptyList()
-        }
+        val ok = _oneSat(node, !node.negated, model)
+        return if (ok) model else emptyList()
     }
 }
 
