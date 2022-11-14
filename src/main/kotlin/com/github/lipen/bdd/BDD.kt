@@ -887,7 +887,61 @@ fun testSuite2() {
     println("-".repeat(42))
 }
 
+fun testSuite3() {
+    val bdd = BDD()
+
+    var f = bdd.zero
+    for (c in listOf(
+        bdd.cube(-1, -2, -3, 4),
+        bdd.cube(-1, -2, 3, -4),
+        bdd.cube(-1, 2, -3, 4),
+        bdd.cube(1, 2, -3, -4),
+        bdd.cube(1, 2, 3, 4),
+    )) {
+        f = bdd.applyOr(f, c)
+    }
+
+    println("-".repeat(42))
+    println("bdd.size = ${bdd.size}")
+    println("bdd.realSize = ${bdd.realSize}")
+    println("-".repeat(42))
+
+    println("-".repeat(42))
+    println("f = $f = ${bdd.toBracketString(f)}")
+    println("GraphViz for [f]:")
+    for (line in bdd.toGraphVizLines(listOf(f))) {
+        println(line)
+    }
+}
+
+fun testSuite4() {
+    val bdd = BDD()
+
+    var f = bdd.zero
+    for (c in listOf(
+        bdd.applyAnd(bdd.mkVar(1), bdd.mkVar(3)),
+        bdd.applyAnd(bdd.mkVar(2), bdd.mkVar(4)),
+    )) {
+        f = bdd.applyOr(f, c)
+    }
+
+    println("-".repeat(42))
+    println("bdd.size = ${bdd.size}")
+    println("bdd.realSize = ${bdd.realSize}")
+    println("-".repeat(42))
+
+    println("-".repeat(42))
+    println("f = $f = ${bdd.toBracketString(f)}")
+    println("GraphViz for [f]:")
+    val lines = bdd.toGraphVizLines(listOf(f)).toList()
+    for (line in lines) {
+        println(line)
+    }
+}
+
 fun main() {
     testSuite1()
     testSuite2()
+    testSuite3()
+    testSuite4()
 }
