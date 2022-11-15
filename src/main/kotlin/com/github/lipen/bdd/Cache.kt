@@ -2,21 +2,21 @@ package com.github.lipen.bdd
 
 // private val logger = mu.KotlinLogging.logger {}
 
-internal class Cache<K, V : Any>(
+internal class Cache<in K, V : Any>(
     val name: String,
-    val map: MutableMap<K, V> = mutableMapOf(), // WeakHashMap(),
+    val map: MutableMap<in K, V> = mutableMapOf(), // WeakHashMap(),
 ) {
     var hits: Int = 0
         private set
     var misses: Int = 0
         private set
 
-    inline fun getOrCompute(key: K, init: (K) -> V): V {
+    inline fun getOrCompute(key: K, init: () -> V): V {
         val v = map[key]
         return if (v == null) {
             // logger.debug { "cache miss for '$name' on $key" }
             misses++
-            init(key).also { map[key] = it }
+            init().also { map[key] = it }
         } else {
             // logger.debug { "cache hit for '$name' on $key" }
             hits++
