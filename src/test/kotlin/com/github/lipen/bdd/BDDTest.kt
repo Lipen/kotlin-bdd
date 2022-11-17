@@ -4,7 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 internal class BDDTest {
-    private val bdd = BDD(storageCapacity = 1 shl 5)
+    private val bdd = BDD(storageCapacity = 1 shl 16)
 
     @Test
     fun `empty BDD`() {
@@ -101,5 +101,53 @@ internal class BDDTest {
     fun `count for clause`() {
         val f = bdd.clause(1, 2, 3)
         assertEquals(7, bdd.count(f, 3))
+    }
+
+    private fun `test all n-ary Boolean functions`(n: Int) {
+        for (f in 0 until (1 shl (1 shl n))) {
+            var node = bdd.zero
+            for ((i, c) in f.toString(2).reversed().withIndex()) {
+                if (c.toBoolean()) {
+                    val lits = i
+                        .toString(2)
+                        .padStart(n, '0')
+                        .withIndex()
+                        .map { (j, x) ->
+                            if (x.toBoolean()) {
+                                j + 1
+                            } else {
+                                -(j + 1)
+                            }
+                        }
+                    val cube = bdd.cube(lits)
+                    node = bdd.applyOr(node, cube)
+                }
+            }
+            val num = f.toString(2).count { it.toBoolean() }
+            assertEquals(num.toLong(), bdd.count(node, n), "f = $f")
+        }
+    }
+
+    @Test
+    fun `all 2-ary functions`() {
+        `test all n-ary Boolean functions`(2)
+    }
+
+    @Test
+    fun `all 3-ary functions`() {
+        `test all n-ary Boolean functions`(3)
+    }
+
+    @Test
+    fun `all 4-ary functions`() {
+        `test all n-ary Boolean functions`(4)
+    }
+}
+
+private fun Char.toBoolean(): Boolean {
+    return when (this) {
+        '0' -> false
+        '1' -> true
+        else -> error("Bad char '$this'")
     }
 }
