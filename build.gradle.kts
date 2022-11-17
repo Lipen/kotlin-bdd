@@ -7,7 +7,7 @@ plugins {
     application
     id("com.github.johnrengelman.shadow") version "7.1.2" apply false
     id("fr.brouillard.oss.gradle.jgitver") version "0.9.1"
-    id("com.github.ben-manes.versions") version "0.43.0"
+    id("com.github.ben-manes.versions") version "0.44.0"
     `maven-publish`
 }
 
@@ -29,7 +29,7 @@ dependencies {
 
     // Test
     testImplementation(kotlin("test"))
-    testImplementation("com.soywiz.korlibs.klock:klock-jvm:3.3.1")
+    testImplementation("com.soywiz.korlibs.klock:klock-jvm:3.4.0")
 }
 
 tasks.test {
