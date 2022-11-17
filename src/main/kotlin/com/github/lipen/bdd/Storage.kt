@@ -2,6 +2,8 @@ package com.github.lipen.bdd
 
 import kotlin.math.min
 
+// TODO rename `capacity` to `size`
+
 internal class Storage(capacity: Int) {
     // Note: 0th cell (index=0) is a sentry.
     private val dataOccupied = java.util.BitSet(capacity)
