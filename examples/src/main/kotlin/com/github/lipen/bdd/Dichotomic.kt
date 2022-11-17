@@ -54,13 +54,7 @@ fun dichotomic(pigeons: Int, holes: Int = pigeons - 1) {
         println("bdd.size = ${bdd.size}")
         println("bdd.realSize = ${bdd.realSize}")
         println("bdd.cacheHits = ${bdd.cacheHits}")
-        for ((name, hits) in bdd.namedCacheHits) {
-            println("  - $name: $hits")
-        }
         println("bdd.cacheMisses = ${bdd.cacheMisses}")
-        for ((name, misses) in bdd.namedCacheMisses) {
-            println("  - $name: $misses")
-        }
         println("-".repeat(42))
     }
 

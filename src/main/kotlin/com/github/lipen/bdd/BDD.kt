@@ -35,20 +35,10 @@ class BDD(
         count
     }
 
-    private val iteCache = Cache<Triple<Int, Ref, Ref>, Ref>("ITE")
-    private val andCache = Cache<Pair<Ref, Ref>, Ref>("AND")
-    private val orCache = Cache<Pair<Ref, Ref>, Ref>("OR")
-    private val xorCache = Cache<Pair<Ref, Ref>, Ref>("XOR")
-    private val sizeCache = Cache<Ref, Int>("SIZE")
-    private val caches = arrayOf(iteCache, andCache, orCache, xorCache, sizeCache)
-    val cacheHits: Int
-        get() = caches.sumOf { it.hits }
-    val cacheMisses: Int
-        get() = caches.sumOf { it.misses }
-    val namedCacheHits: Map<String, Int>
-        get() = caches.associate { it.name to it.hits }
-    val namedCacheMisses: Map<String, Int>
-        get() = caches.associate { it.name to it.misses }
+    // TODO: allow customize cache size
+    private val cache = OpCache()
+    val cacheHits: Int get() = cache.hits
+    val cacheMisses: Int get() = cache.misses
 
     internal fun isOccupied(i: Int): Boolean = storage.isOccupied(i)
 
@@ -76,7 +66,13 @@ class BDD(
     private val bitmask = bucketsCapacity - 1
 
     private fun lookup(v: Int, low: Ref, high: Ref): Int {
-        return hash3(v, low.index.absoluteValue, high.index.absoluteValue) and bitmask
+        // return cantor3(v, low.index.absoluteValue, high.index.absoluteValue) and bitmask
+        @OptIn(ExperimentalUnsignedTypes::class)
+        return pairing(
+            v.toUInt().toULong(),
+            low.index.toUInt().toULong(),
+            high.index.toUInt().toULong(),
+        ).toInt() and bitmask
     }
 
     fun mkNode(v: Int, low: Ref, high: Ref): Ref {
@@ -148,7 +144,8 @@ class BDD(
     fun collectGarbage(roots: Iterable<Ref>) {
         logger.debug { "Collecting garbage..." }
 
-        caches.forEach { it.map.clear() }
+        cache.clear()
+        // caches.forEach { it.clear() }
 
         val alive = descendants(roots)
         logger.debug { "Alive: ${alive.sorted()}" }
@@ -296,7 +293,7 @@ class BDD(
             n = true
         }
 
-        return iteCache.getOrCompute(Triple(variable(f), g, h)) {
+        return cache.op(OpKind.Ite, listOf(f, g, h)) {
             val i = variable(f)
             val j = variable(g)
             val k = variable(h)
@@ -407,7 +404,7 @@ class BDD(
         //     }
         // }
 
-        return andCache.getOrCompute(Pair(u, v)) {
+        return cache.op(OpKind.And, listOf(u, v)) {
             _apply(u, v, ::applyAnd)
         }
     }
@@ -444,7 +441,7 @@ class BDD(
         //     }
         // }
 
-        return orCache.getOrCompute(Pair(u, v)) {
+        return cache.op(OpKind.Or, listOf(u, v)) {
             _apply(u, v, ::applyOr)
         }
     }
@@ -485,7 +482,7 @@ class BDD(
         //     }
         // }
 
-        return xorCache.getOrCompute(Pair(u, v)) {
+        return cache.op(OpKind.Xor, listOf(u, v)) {
             _apply(u, v, ::applyXor)
         }
     }
@@ -513,12 +510,12 @@ class BDD(
     }
 
     fun size(node: Ref): Int {
-        return sizeCache.getOrCompute(node) {
+        return cache.get(OpKind.Size, listOf(node)) {
             descendants(node).size
         }
     }
 
-    private fun _count(node: Ref, max: Double, cache: Cache<Ref, Double>): Double {
+    private fun _count(node: Ref, max: Double, cache: MapCache<Ref, Double>): Double {
         if (isOne(node)) {
             return max
         } else if (isZero(node)) {
@@ -537,14 +534,14 @@ class BDD(
     }
 
     fun count(node: Ref, nvars: Int): Long {
-        val cache = Cache<Ref, Double>("COUNT")
+        val cache = MapCache<Ref, Double>("COUNT")
         // TODO: determine `nvars` automatically
         // TODO: calculate `max` correctly
         val max = 2L.toDouble().pow(nvars) //.toLong()
         return _count(node, max, cache).toLong()
     }
 
-    private fun _substitute(f: Ref, v: Int, g: Ref, cache: Cache<Pair<Ref, Ref>, Ref>): Ref {
+    private fun _substitute(f: Ref, v: Int, g: Ref, cache: OpCache): Ref {
         logger.debug { "substitute(f = $f, v = $v, g = $g)" }
 
         if (isTerminal(f)) {
@@ -552,12 +549,12 @@ class BDD(
         }
 
         val i = variable(f)
-        check(i > 0) { "Variable for f=$f is $i" }
+        check(i > 0)
         if (v < i) {
             return f
         }
 
-        return cache.getOrCompute(Pair(f, g)) {
+        return cache.op(OpKind.Substitute, listOf(f, g)) {
             if (i == v) {
                 val low = low(f)
                 val high = high(f)
@@ -568,7 +565,7 @@ class BDD(
 
                 // val j = variable(g)
                 val j = if (variable(g) > 0) variable(g) else variable(f)
-                check(j > 0) { "Variable for g=$g is $j" }
+                check(j > 0)
                 val m = min(i, j)
                 check(m > 0)
 
@@ -583,11 +580,11 @@ class BDD(
     }
 
     fun substitute(f: Ref, v: Int, g: Ref): Ref {
-        val cache = Cache<Pair<Ref, Ref>, Ref>("SUBSTITUTE($v)")
+        val cache = OpCache()
         return _substitute(f, v, g, cache)
     }
 
-    private fun _exists(node: Ref, j: Int, vars: Set<Int>, cache: Cache<Ref, Ref>): Ref {
+    private fun _exists(node: Ref, j: Int, vars: Set<Int>, cache: MapCache<Ref, Ref>): Ref {
         logger.debug { "_exists($node, $vars) ($node = ${getTriplet(node)})" }
 
         if (isTerminal(node)) {
@@ -642,7 +639,7 @@ class BDD(
 
     fun exists(node: Ref, vars: Set<Int>): Ref {
         logger.debug { "exists($node, $vars)" }
-        val cache = Cache<Ref, Ref>("EXISTS($vars)")
+        val cache = MapCache<Ref, Ref>("EXISTS($vars)")
         return _exists(node, 0, vars, cache).also {
             logger.debug { "exists($node, $vars) = $it (${getTriplet(node)})" }
             logger.debug { "  cache ${cache.name}: hits=${cache.hits}, misses=${cache.misses}" }
@@ -658,7 +655,7 @@ class BDD(
         f: Ref,
         g: Ref,
         vars: Set<Int>,
-        cache: Cache<Triple<Ref, Ref, Set<Int>>, Ref>,
+        cache: MapCache<Triple<Ref, Ref, Set<Int>>, Ref>,
     ): Ref {
         if (isZero(f) || isZero(g)) {
             return zero
@@ -692,7 +689,7 @@ class BDD(
     }
 
     fun relProduct(f: Ref, g: Ref, vars: Set<Int>): Ref {
-        val relProductCache: Cache<Triple<Ref, Ref, Set<Int>>, Ref> = Cache("RELPROD($vars)")
+        val relProductCache: MapCache<Triple<Ref, Ref, Set<Int>>, Ref> = MapCache("RELPROD($vars)")
         return _relProduct(f, g, vars, relProductCache)
     }
 

@@ -22,11 +22,11 @@ class OldBDD {
         constructor(v: Int, low: Function, high: Function) : this(v, low.id, high.id)
     }
 
-    private val iteCache = Cache<Triple<Int, Int, Int>, Function>("ITE")
-    private val iteConstantCache = Cache<Triple<Int, Int, Int>, Optional<Function>>("ITE-CONST")
-    private val andCache = Cache<Pair<Int, Int>, Function>("AND")
-    private val orCache = Cache<Pair<Int, Int>, Function>("OR")
-    private val xorCache = Cache<Pair<Int, Int>, Function>("XOR")
+    private val iteCache = MapCache<Triple<Int, Int, Int>, Function>("ITE")
+    private val iteConstantCache = MapCache<Triple<Int, Int, Int>, Optional<Function>>("ITE-CONST")
+    private val andCache = MapCache<Pair<Int, Int>, Function>("AND")
+    private val orCache = MapCache<Pair<Int, Int>, Function>("OR")
+    private val xorCache = MapCache<Pair<Int, Int>, Function>("XOR")
     private val caches = arrayOf(iteCache, iteConstantCache, andCache, orCache, xorCache)
     val cacheMisses: Int
         get() = caches.sumOf { it.misses }
