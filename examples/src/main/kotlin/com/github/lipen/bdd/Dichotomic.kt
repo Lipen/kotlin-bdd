@@ -22,7 +22,7 @@ fun dichotomic(pigeons: Int, holes: Int = pigeons - 1) {
     println("umap = $umap")
     println("Final nvars = $nvars")
 
-    val bdd = BDD(storageCapacity = 1 shl 20)
+    val bdd = BDD(storageBits = 20)
     var f = bdd.one
 
     var stepsTime = 0.0

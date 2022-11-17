@@ -99,7 +99,7 @@ fun queens() {
     val n = 12
 
     val timeStart = PerformanceCounter.reference
-    val bdd = BDD(storageCapacity = 1 shl 24)
+    val bdd = BDD(storageBits = 24)
 
     println("Calculating BDD for a board with N=$n queens...")
     val timeStartBoard = PerformanceCounter.reference

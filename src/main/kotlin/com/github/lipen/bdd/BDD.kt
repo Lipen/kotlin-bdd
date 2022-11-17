@@ -7,11 +7,16 @@ import kotlin.math.pow
 private val logger = mu.KotlinLogging.logger {}
 
 class BDD(
-    val storageCapacity: Int = 1 shl 20,
-    val bucketsCapacity: Int = storageCapacity,
+    val storageBits: Int = 20,
+    val bucketsBits: Int = storageBits,
 ) {
-    private val buckets = IntArray(bucketsCapacity)
-    private val storage = Storage(storageCapacity)
+    init {
+        require(storageBits in 1..31)
+        require(bucketsBits in 1..31)
+    }
+
+    private val buckets = IntArray(1 shl bucketsBits)
+    private val storage = Storage(1 shl bucketsBits)
 
     val one = Ref(1) // terminal 1
     val zero = Ref(-1) // terminal 0
@@ -63,7 +68,7 @@ class BDD(
         return Ref(index)
     }
 
-    private val bitmask = bucketsCapacity - 1
+    private val bitmask = (1 shl bucketsBits) - 1
 
     private fun lookup(v: Int, low: Ref, high: Ref): Int {
         // return cantor3(v, low.index.absoluteValue, high.index.absoluteValue) and bitmask

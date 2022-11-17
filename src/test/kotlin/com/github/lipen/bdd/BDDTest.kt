@@ -4,7 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 internal class BDDTest {
-    private val bdd = BDD(storageCapacity = 1 shl 16)
+    private val bdd = BDD(storageBits = 16)
 
     @Test
     fun `empty BDD`() {
