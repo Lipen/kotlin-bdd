@@ -7,12 +7,14 @@ import kotlin.math.pow
 private val logger = mu.KotlinLogging.logger {}
 
 class BDD(
-    val storageBits: Int = 20,
-    val bucketsBits: Int = storageBits,
+    storageBits: Int = 20,
+    bucketsBits: Int = storageBits,
+    cacheBits: Int = 20,
 ) {
     init {
         require(storageBits in 1..31)
         require(bucketsBits in 1..31)
+        require(cacheBits in 1..31)
     }
 
     private val buckets = IntArray(1 shl bucketsBits)
@@ -40,8 +42,7 @@ class BDD(
         count
     }
 
-    // TODO: allow customize cache size
-    private val cache = OpCache()
+    private val cache = OpCache(cacheBits)
     val cacheHits: Int get() = cache.hits
     val cacheMisses: Int get() = cache.misses
 
@@ -589,14 +590,14 @@ class BDD(
         return _substitute(f, v, g, cache)
     }
 
-    private fun _exists(node: Ref, j: Int, vars: Set<Int>, cache: MapCache<Ref, Ref>): Ref {
+    private fun _exists(node: Ref, j: Int, vars: Set<Int>, cache: OpCache): Ref {
         logger.debug { "_exists($node, $vars) ($node = ${getTriplet(node)})" }
 
         if (isTerminal(node)) {
             return node
         }
 
-        return cache.getOrCompute(node) {
+        return cache.op(OpKind.Exists, listOf(node)) {
             val v = variable(node)
             val low = low(node).let { if (node.negated) -it else it }
             val high = high(node).let { if (node.negated) -it else it }
@@ -613,7 +614,7 @@ class BDD(
             }
             // exhausted valuation
             if (m == vars.size) {
-                return@getOrCompute node
+                return@op node
             }
 
             val r0 = _exists(low, m, vars, cache)
@@ -644,10 +645,10 @@ class BDD(
 
     fun exists(node: Ref, vars: Set<Int>): Ref {
         logger.debug { "exists($node, $vars)" }
-        val cache = MapCache<Ref, Ref>("EXISTS($vars)")
+        val cache = OpCache()
         return _exists(node, 0, vars, cache).also {
             logger.debug { "exists($node, $vars) = $it (${getTriplet(node)})" }
-            logger.debug { "  cache ${cache.name}: hits=${cache.hits}, misses=${cache.misses}" }
+            logger.debug { "  cache hits=${cache.hits}, cache misses=${cache.misses}" }
         }
     }
 
@@ -657,31 +658,31 @@ class BDD(
     }
 
     private fun _relProduct(
-        f: Ref,
-        g: Ref,
+        u: Ref,
+        v: Ref,
         vars: Set<Int>,
-        cache: MapCache<Triple<Ref, Ref, Set<Int>>, Ref>,
+        cache: OpCache,
     ): Ref {
-        if (isZero(f) || isZero(g)) {
+        if (isZero(u) || isZero(v)) {
             return zero
         }
-        if (isOne(f) && isOne(g)) {
+        if (isOne(u) && isOne(v)) {
             return one
         }
-        if (isOne(f)) {
-            return exists(g, vars)
+        if (isOne(u)) {
+            return exists(v, vars)
         }
-        if (isOne(g)) {
-            return exists(f, vars)
+        if (isOne(v)) {
+            return exists(u, vars)
         }
 
-        return cache.getOrCompute(Triple(f, g, vars)) {
-            val i = variable(f)
-            val j = variable(g)
+        return cache.op(OpKind.RelProduct, listOf(u, v)) {
+            val i = variable(u)
+            val j = variable(v)
             val m = min(i, j)
 
-            val (f0, f1) = topCofactors(f, m)
-            val (g0, g1) = topCofactors(g, m)
+            val (f0, f1) = topCofactors(u, m)
+            val (g0, g1) = topCofactors(v, m)
             val h0 = _relProduct(f0, g0, vars, cache)
             val h1 = _relProduct(f1, g1, vars, cache)
 
@@ -693,9 +694,9 @@ class BDD(
         }
     }
 
-    fun relProduct(f: Ref, g: Ref, vars: Set<Int>): Ref {
-        val relProductCache: MapCache<Triple<Ref, Ref, Set<Int>>, Ref> = MapCache("RELPROD($vars)")
-        return _relProduct(f, g, vars, relProductCache)
+    fun relProduct(u: Ref, v: Ref, vars: Set<Int>): Ref {
+        val cache = OpCache()
+        return _relProduct(u, v, vars, cache)
     }
 
     private fun _oneSat(node: Ref, parity: Boolean, model: MutableList<Boolean?>): Boolean {
