@@ -17,8 +17,8 @@ class BDD(
         require(cacheBits in 1..31)
     }
 
+    private val storage = Storage(1 shl storageBits)
     private val buckets = IntArray(1 shl bucketsBits)
-    private val storage = Storage(1 shl bucketsBits)
 
     val one = Ref(1) // terminal 1
     val zero = Ref(-1) // terminal 0
