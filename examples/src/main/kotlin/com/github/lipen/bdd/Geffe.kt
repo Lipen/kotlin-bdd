@@ -1,13 +1,16 @@
 package com.github.lipen.bdd
 
-import com.soywiz.klock.PerformanceCounter
-import com.soywiz.klock.measureTimeWithResult
+import io.github.oshai.kotlinlogging.KotlinLogging
 import okio.buffer
 import okio.sink
 import java.io.File
 import kotlin.math.absoluteValue
+import kotlin.time.Duration
+import kotlin.time.DurationUnit
+import kotlin.time.TimeSource
+import kotlin.time.measureTimedValue
 
-private val logger = mu.KotlinLogging.logger {}
+private val logger = KotlinLogging.logger {}
 
 private fun readClauses(cnfFile: File): List<List<Int>> {
     val result: MutableList<List<Int>> = mutableListOf()
@@ -28,10 +31,10 @@ private fun readClauses(cnfFile: File): List<List<Int>> {
 fun geffe() {
     println("Running Geffe...")
 
-    val timeStart = PerformanceCounter.reference
+    val timeStart = TimeSource.Monotonic.markNow()
     val bdd = BDD(1 shl 24)
     var f = bdd.one
-    var totaltime = 0.0
+    var totaltime = Duration.ZERO
     // val cnfFile = File("data/geffe/geffe_100.cnf")
     val cnfFile = File("data/geffe/geffe_30.cnf")
     // val cnfFile = File("data/geffe/geffe_30_out1.cnf")
@@ -80,7 +83,7 @@ fun geffe() {
 
             fun <T> step(name: String, allowGC: Boolean = false, block: () -> T): T {
                 count++
-                val (result, steptime) = measureTimeWithResult {
+                val (result, steptime) = measureTimedValue {
                     block().also {
                         if (allowGC) {
                             if (count % 500 == 0 || bdd.realSize > 10000) {
@@ -93,14 +96,17 @@ fun geffe() {
                 println(
                     ("Step #$count $name in %.3fs, bdd.size=${bdd.size}, bdd.realSize=${bdd.realSize}," +
                         " f=$f (f.v=${bdd.getTriplet(f)?.v}), f.size=$fsize," +
-                        " hits=${bdd.cacheHits}, misses=${bdd.cacheMisses}")
-                        .format(steptime.seconds)
+                        " hits=${bdd.cacheHits}, misses=${bdd.cacheMisses}"
+                        ).format(steptime.toDouble(DurationUnit.SECONDS))
                 )
-                totaltime += steptime.seconds
+                totaltime += steptime
                 val nameSafe = name.replace(" ", "_")
                 writeUtf8(
                     "$count $nameSafe ${bdd.realSize} $fsize %.3f %.3f ${bdd.cacheHits} ${bdd.cacheMisses}\n"
-                        .format(steptime.seconds, totaltime)
+                        .format(
+                            steptime.toDouble(DurationUnit.SECONDS),
+                            totaltime.toDouble(DurationUnit.SECONDS)
+                        )
                 )
                 return result
             }
@@ -356,8 +362,13 @@ fun geffe() {
     }
 
     println("-".repeat(42))
-    val totalTime = PerformanceCounter.reference - timeStart
-    println("Done in %.2fs (totaltime=%.2f)".format(totalTime.seconds, totaltime))
+    val totalTime = timeStart.elapsedNow()
+    println(
+        "Done in %.2fs (totaltime=%.2f)".format(
+            totalTime.toDouble(DurationUnit.SECONDS),
+            totaltime.toDouble(DurationUnit.SECONDS)
+        )
+    )
 }
 
 fun main() {

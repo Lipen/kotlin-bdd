@@ -1,11 +1,13 @@
 package com.github.lipen.bdd
 
-import com.soywiz.klock.PerformanceCounter
-import com.soywiz.klock.measureTime
 import kotlin.math.absoluteValue
+import kotlin.time.Duration
+import kotlin.time.DurationUnit
+import kotlin.time.TimeSource
+import kotlin.time.measureTime
 
 fun dichotomic(pigeons: Int, holes: Int = pigeons - 1) {
-    val timeStart = PerformanceCounter.reference
+    val timeStart = TimeSource.Monotonic.markNow()
 
     val clauses = generatePhpClauses(pigeons, holes).toList()
     var nvars = clauses.maxOf { clause -> clause.maxOf { lit -> lit.absoluteValue } }
@@ -25,7 +27,7 @@ fun dichotomic(pigeons: Int, holes: Int = pigeons - 1) {
     val bdd = BDD(storageBits = 20)
     var f = bdd.one
 
-    var stepsTime = 0.0
+    var stepsTime = Duration.ZERO
     var count = 0
 
     fun step(name: String, allowGC: Boolean = false, block: () -> Unit) {
@@ -38,14 +40,14 @@ fun dichotomic(pigeons: Int, holes: Int = pigeons - 1) {
                 }
             }
         }
-        stepsTime += steptime.seconds
+        stepsTime += steptime
         val fsize = bdd.descendants(f).size
         println(
             ("Step #$count ($name) in %.3fms," +
                 " bdd.size=${bdd.size}, bdd.realSize=${bdd.realSize}," +
                 " f=$f (v=${bdd.getTriplet(f)?.v}), f.size=$fsize," +
-                " hits=${bdd.cacheHits}, misses=${bdd.cacheMisses}}")
-                .format(steptime.milliseconds)
+                " hits=${bdd.cacheHits}, misses=${bdd.cacheMisses}}"
+                ).format(steptime.toDouble(DurationUnit.MILLISECONDS))
         )
     }
 
@@ -101,8 +103,13 @@ fun dichotomic(pigeons: Int, holes: Int = pigeons - 1) {
     }
     printBddStats()
 
-    val totalTime = PerformanceCounter.reference - timeStart
-    println("PHP($pigeons, $holes) done in %.2fs (stepsTime=%.2fs)".format(totalTime.seconds, stepsTime))
+    val totalTime = timeStart.elapsedNow()
+    println(
+        "PHP($pigeons, $holes) done in %.2fs (stepsTime=%.2fs)".format(
+            totalTime.toDouble(DurationUnit.SECONDS),
+            stepsTime.toDouble(DurationUnit.SECONDS)
+        )
+    )
 }
 
 fun main(args: Array<String>) {

@@ -1,10 +1,12 @@
 package com.github.lipen.bdd
 
-import com.soywiz.klock.PerformanceCounter
-import com.soywiz.klock.measureTime
 import okio.buffer
 import okio.sink
 import java.io.File
+import kotlin.time.Duration
+import kotlin.time.DurationUnit
+import kotlin.time.TimeSource
+import kotlin.time.measureTime
 
 internal fun generatePhpClausesA(pigeons: Int, holes: Int): Sequence<List<Int>> = sequence {
     fun v(i: Int, j: Int) = (i - 1) * holes + j
@@ -25,7 +27,7 @@ internal fun generatePhpClausesBj(pigeons: Int, holes: Int, j: Int): Sequence<Li
 
 internal fun generatePhpClausesB(pigeons: Int, holes: Int): Sequence<List<Int>> = sequence {
     // B clauses
-    for (j in 1..holes) //h *
+    for (j in 1..holes) // h *
         yieldAll(generatePhpClausesBj(pigeons, holes, j))
 }.constrainOnce()
 
@@ -44,7 +46,7 @@ fun php(pigeons: Int, holes: Int = pigeons - 1) {
 
     println("Running PHP(p = $pigeons, h = $holes})...")
 
-    val timeStart = PerformanceCounter.reference
+    val timeStart = TimeSource.Monotonic.markNow()
     val bdd = BDD(
         storageBits = when {
             pigeons > 25 -> 21
@@ -52,7 +54,7 @@ fun php(pigeons: Int, holes: Int = pigeons - 1) {
         }
     )
     var f = bdd.one
-    var totaltime = 0.0
+    var totaltime = Duration.ZERO
 
     val useGC = false
     val useCojoinTree = false
@@ -75,7 +77,7 @@ fun php(pigeons: Int, holes: Int = pigeons - 1) {
 
             var count = 0
 
-            fun step(name: String, allowGC: Boolean = false, block: () -> Unit): Double {
+            fun step(name: String, allowGC: Boolean = false, block: () -> Unit): Duration {
                 count++
                 val steptime = measureTime {
                     block()
@@ -90,16 +92,19 @@ fun php(pigeons: Int, holes: Int = pigeons - 1) {
                     ("Step #$count ($name) in %.3fms," +
                         " bdd.size=${bdd.size}, bdd.realSize=${bdd.realSize}," +
                         " f=$f (v=${bdd.getTriplet(f)?.v}), f.size=$fsize," +
-                        " hits=${bdd.cacheHits}, misses=${bdd.cacheMisses}}")
-                        .format(steptime.milliseconds)
+                        " hits=${bdd.cacheHits}, misses=${bdd.cacheMisses}}"
+                        ).format(steptime.toDouble(DurationUnit.MILLISECONDS))
                 )
-                totaltime += steptime.seconds
+                totaltime += steptime
                 val nameSafe = name.replace(" ", "_")
                 writeUtf8(
                     "$count $nameSafe ${bdd.realSize} $fsize %.3f %.3f ${bdd.cacheHits} ${bdd.cacheMisses}\n"
-                        .format(steptime.seconds, totaltime)
+                        .format(
+                            steptime.toDouble(DurationUnit.SECONDS),
+                            totaltime.toDouble(DurationUnit.SECONDS)
+                        )
                 )
-                return steptime.seconds
+                return steptime
             }
 
             for (clause in generatePhpClausesA(pigeons, holes)) {
@@ -172,8 +177,13 @@ fun php(pigeons: Int, holes: Int = pigeons - 1) {
     println("bdd.maxChain() = ${bdd.maxChain()}")
     println("-".repeat(42))
 
-    val totalTime = PerformanceCounter.reference - timeStart
-    println("PHP($pigeons, $holes) done in %.2fs (totaltime=%.2f)".format(totalTime.seconds, totaltime))
+    val totalTime = timeStart.elapsedNow()
+    println(
+        "PHP($pigeons, $holes) done in %.2fs (totaltime=%.2f)".format(
+            totalTime.toDouble(DurationUnit.SECONDS),
+            totaltime.toDouble(DurationUnit.SECONDS)
+        )
+    )
 }
 
 fun main(args: Array<String>) {

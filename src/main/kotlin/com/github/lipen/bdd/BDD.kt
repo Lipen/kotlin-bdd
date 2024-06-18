@@ -1,10 +1,11 @@
 package com.github.lipen.bdd
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.math.absoluteValue
 import kotlin.math.min
 import kotlin.math.pow
 
-private val logger = mu.KotlinLogging.logger {}
+private val logger = KotlinLogging.logger {}
 
 class BDD(
     storageBits: Int = 20,

@@ -1,13 +1,13 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 group = "com.github.Lipen"
 
 plugins {
-    kotlin("jvm") version "1.7.20"
+    kotlin("jvm") version Versions.kotlin
     application
-    id("com.github.johnrengelman.shadow") version "7.1.2" apply false
-    id("fr.brouillard.oss.gradle.jgitver") version "0.9.1"
-    id("com.github.ben-manes.versions") version "0.44.0"
+    id(Plugins.Shadow, apply = false)
+    id(Plugins.JGitver)
     `maven-publish`
 }
 
@@ -25,12 +25,11 @@ dependencies {
     // ...
 
     // Logging
-    implementation("io.github.microutils:kotlin-logging:3.0.4")
-    runtimeOnly("ch.qos.logback:logback-classic:1.4.4")
+    implementation(Libs.kotlin_logging)
+    runtimeOnly(Libs.slf4j_simple)
 
     // Test
     testImplementation(kotlin("test"))
-    testImplementation("com.soywiz.korlibs.klock:klock-jvm:3.4.0")
 }
 
 tasks.test {
@@ -40,8 +39,16 @@ tasks.test {
     }
 }
 
+tasks.withType<JavaCompile> {
+    sourceCompatibility = "1.8"
+    targetCompatibility = "1.8"
+    options.encoding = "UTF-8"
+}
+
 tasks.withType<KotlinCompile> {
-    kotlinOptions.jvmTarget = "1.8"
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_1_8)
+    }
 }
 
 application {
@@ -72,7 +79,7 @@ publishing {
 }
 
 tasks.wrapper {
-    gradleVersion = "7.5.1"
+    gradleVersion = "8.8"
     distributionType = Wrapper.DistributionType.ALL
 }
 

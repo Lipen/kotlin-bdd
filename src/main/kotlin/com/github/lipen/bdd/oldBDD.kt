@@ -1,10 +1,11 @@
 package com.github.lipen.bdd
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.Optional
 import kotlin.math.absoluteValue
 import kotlin.math.min
 
-private val logger = mu.KotlinLogging.logger {}
+private val logger = KotlinLogging.logger {}
 
 class OldBDD {
     // T :: {id: Node}

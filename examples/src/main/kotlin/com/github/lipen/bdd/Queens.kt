@@ -1,8 +1,9 @@
 package com.github.lipen.bdd
 
-import com.soywiz.klock.PerformanceCounter
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.time.DurationUnit
+import kotlin.time.TimeSource
 
 private const val GC = true
 private const val QUIET = true
@@ -86,10 +87,14 @@ private fun BDD.queens_board(n: Int): Ref {
                 " (size=${size(out)}, count=${count(out, n * n)})"
         )
         if (GC) {
-            val timeStartGC = PerformanceCounter.reference
+            val timeStartGC = TimeSource.Monotonic.markNow()
             collectGarbage(listOf(out))
-            val timeGC = PerformanceCounter.reference - timeStartGC
-            println("[$i/$n], GC in %.2fs: bdd.size = $size, bdd.realSize = $realSize".format(timeGC.seconds))
+            val timeGC = timeStartGC.elapsedNow()
+            println(
+                "[$i/$n], GC in %.2fs: bdd.size = $size, bdd.realSize = $realSize".format(
+                    timeGC.toDouble(DurationUnit.SECONDS)
+                )
+            )
         }
     }
     return out
@@ -98,14 +103,18 @@ private fun BDD.queens_board(n: Int): Ref {
 fun queens() {
     val n = 12
 
-    val timeStart = PerformanceCounter.reference
+    val timeStart = TimeSource.Monotonic.markNow()
     val bdd = BDD(storageBits = 24)
 
     println("Calculating BDD for a board with N=$n queens...")
-    val timeStartBoard = PerformanceCounter.reference
+    val timeStartBoard = TimeSource.Monotonic.markNow()
     val board = bdd.queens_board(n)
-    val timeBoard = PerformanceCounter.reference - timeStartBoard
-    println("Built BDD for a board with N=$n queens in %.2fs".format(timeBoard.seconds))
+    val timeBoard = timeStartBoard.elapsedNow()
+    println(
+        "Built BDD for a board with N=$n queens in %.2fs".format(
+            timeBoard.toDouble(DurationUnit.SECONDS)
+        )
+    )
     println()
     println("n = $n, board = $board (size = ${bdd.size(board)}, count = ${bdd.count(board, n * n)})")
     println()
@@ -113,8 +122,8 @@ fun queens() {
     println("bdd.size = ${bdd.size}")
     println("bdd.realSize = ${bdd.realSize}")
     println()
-    val timeTotal = PerformanceCounter.reference - timeStart
-    println("All done in %.2fs".format(timeTotal.seconds))
+    val timeTotal = timeStart.elapsedNow()
+    println("All done in %.2fs".format(timeTotal.toDouble(DurationUnit.SECONDS)))
 }
 
 fun main() {

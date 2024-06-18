@@ -1,10 +1,13 @@
 package com.github.lipen.bdd
 
-import com.soywiz.klock.PerformanceCounter
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.io.File
 import kotlin.math.absoluteValue
+import kotlin.time.Duration
+import kotlin.time.DurationUnit
+import kotlin.time.TimeSource
 
-private val logger = mu.KotlinLogging.logger {}
+private val logger = KotlinLogging.logger {}
 
 private fun readClauses(cnfFile: File): List<List<Int>> {
     val result: MutableList<List<Int>> = mutableListOf()
@@ -25,11 +28,11 @@ private fun readClauses(cnfFile: File): List<List<Int>> {
 fun schema() {
     println("Running Scheme...")
 
-    val timeStart = PerformanceCounter.reference
+    val timeStart = TimeSource.Monotonic.markNow()
     val storageCapacity = 1 shl 20
     val bdd = BDD(storageCapacity)
     var f = bdd.one
-    var totaltime = 0.0
+    var totaltime = Duration.ZERO
 
     val fileName = "data/schema/sample_1/difficult_cnf_5.txt"
     val clausesRaw = readClauses(File(fileName))
@@ -66,7 +69,8 @@ fun schema() {
     println("-".repeat(42))
     println("Bucket sizes (max = ${buckets.maxOf { it.size }}): ${buckets.map { it.size }}")
     println("Sum BDD sizes (max = ${buckets.maxOf { it.sumOf { bdd.descendants(it).size } }}): " +
-        "${buckets.map { it.sumOf { bdd.descendants(it).size } }}")
+        "${buckets.map { it.sumOf { bdd.descendants(it).size } }}"
+    )
 
     for ((i, bucket) in buckets.withIndex()) {
         println("-".repeat(42))
@@ -91,8 +95,13 @@ fun schema() {
     }
 
     println("-".repeat(42))
-    val totalTime = PerformanceCounter.reference - timeStart
-    println("Done in %.2fs (totaltime=%.2f)".format(totalTime.seconds, totaltime))
+    val totalTime = timeStart.elapsedNow()
+    println(
+        "Done in %.2fs (totaltime=%.2f)".format(
+            totalTime.toDouble(DurationUnit.SECONDS),
+            totaltime.toDouble(DurationUnit.SECONDS)
+        )
+    )
 }
 
 fun main() {
