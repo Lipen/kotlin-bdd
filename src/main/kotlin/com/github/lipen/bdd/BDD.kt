@@ -20,13 +20,14 @@ class BDD(
     private val storage = Storage(1 shl storageBits)
     private val buckets = IntArray(1 shl bucketsBits)
 
+    init {
+        val terminal = storage.alloc() // allocate the terminal node
+        check(terminal == 1)
+        buckets[0] = terminal // store the terminal node in the 0th bucket
+    }
+
     val one = Ref(1) // terminal 1
     val zero = Ref(-1) // terminal 0
-
-    init {
-        check(storage.alloc() == 1) // allocate the terminal node
-        buckets[0] = 1 // store the terminal node in the 0th bucket
-    }
 
     val size: Int get() = storage.lastIndex
     val realSize: Int get() = storage.realSize
